@@ -3,7 +3,7 @@
 This is a pipeline for genomic analysis of single cells
 
 ###The scripts
-There are 5 scripts in the analysisScripts folder, the five scripts are the following:   
+There are 5 scripts in the analysis_scripts folder, including:   
 
 1. **startAnalysis**  
 This script generates bash scripts for all parts of the analysis (such as trimming the raw data, mapping trimmed reads, variant calling, QC etc) and submits these scripts to the SLURM workload manager.

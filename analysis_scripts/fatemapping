@@ -1,0 +1,18 @@
+#!/usr/bin/env python
+
+helpMessage = """
+############ fatemapping ################
+This is a pipe for DNA sequence analysis.
+You can use it to analyze genomic sequencing data from single cells.
+use:
+fatemapping <analysisPath> addSample <sampleName> 
+fatemapping <analysisPath> addFastq <sampleName> <r1> <r2>
+fatemapping <analysisPath> createScripts <uppmaxProjectNumber> <"wgs"|"exome"> <emailAdress>
+fatemapping <analysisPath> submitScripts
+...more to come ...
+fatemapping <analysisPath> report
+fatemapping <analysisPath> makeGraphics
+fatemapping <analysisPath> reSubmit <uppmaxAccount> <"wgs"|"exome"> [<emailAdress>] 11111111 <sampleId>
+fatemapping <analysisPath> copyReport <destination>
+fatemapping <analysisPath> variationCheck
+fatemapping <analysisPath> changeSetting variableName=value [listsettings]

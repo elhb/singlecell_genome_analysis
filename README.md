@@ -2,8 +2,6 @@
 
 This is a pipeline for genomic analysis of single cells
 
-The scripts are used for phylogenetic fatemapping of single cells
-
 ###The scripts
 There are 5 scripts in the analysisScripts folder, the five scripts are the following:   
 

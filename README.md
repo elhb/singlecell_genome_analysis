@@ -2,7 +2,7 @@
 
 This is a pipeline for genomic analysis of single cells
 
-###The scripts
+##The scripts
 There are 5 scripts in the analysis_scripts folder, including:   
 
 1. **startAnalysis**  
@@ -16,11 +16,11 @@ This script is also executed during trimming, it uses a hamming distance functio
 1. **mappingStatsForExcel.py**  
 This script is called as soon as all the mapping and gvcf-file creation is completed, it identifies information such as mapping rates and on target percentages for all samples and makes a summary (not working properly after upgrading to GATK3 instead manual curation was used).
 
-###Reproducing the analysis
-####Note on Uppmax and Slurm
+##Reproducing the analysis
+###Note on Uppmax and Slurm
 All scripts were run at Uppmax, Uppsala University's resource of high-performance computers in Uppsala, Sweden (http://www.uppmax.uu.se/). The Uppmax resource uses the SLURM workload manager (http://slurm.schedmd.com/) and the scripts are therefore configure to use this system. it also loads binaries such as bowtie2, fastqc etc into the PATH through "module load" commands.  If these type of systems is not present on you machine you should be able to run the automatically generated sbatch scripts using bash (possibly after some manual editing).
 
-####Dependencies
+###Dependencies
 To run the analysis some additional software is requiered:
 
 1. TrimBWAstyle.pl (from http://wiki.bioinformatics.ucdavis.edu/index.php/TrimBWAstyle.pl)

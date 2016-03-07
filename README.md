@@ -36,4 +36,4 @@ To run the analysis some additional software is requiered:
 ####Hardcoded variables
 Some paths and filenames etc are hardcoded, if you want to reproduce the analysis you need to change the paths in the script (or rename any files downloaded from the SRA to match the scripts as well as changing the locations of executables on your machine).
 
-####Do not hesitate to contact me if you need assistance in running the scripts.
+Do not hesitate to contact me if you need assistance in running the scripts.

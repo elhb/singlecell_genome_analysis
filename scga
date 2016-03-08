@@ -5,9 +5,9 @@ def main():
     import sys
     
     for term in ['h','help','-h','--help']:
-	if term in sys.argv:
-	    print helpMessage
-	    sys.exit()
+        if term in sys.argv:
+            print helpMessage
+            sys.exit()
 
     app = AnalysisPipe()
     app.run()

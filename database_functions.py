@@ -2,14 +2,14 @@ class Database(object):
 
     def __init__(self, dbPath):
         self.path = dbPath
-
+    
     def getConnection(self,):
         #
         # Import useful stuff
         #
         import sqlite3
         import sys
-
+    
         #
         # Create database and set
         #
@@ -18,14 +18,14 @@ class Database(object):
             print 'ERROR: Trouble with the database, please check your commandline.'
             sys.exit()
         self.c = self.conn.cursor()
-
+    
     def commitAndClose(self,):
         #
         # commit changes and close connection
         #
         self.conn.commit()
         self.conn.close()
-
+    
     def create(self,):
         """ creates the database holding all information used in the analysis """
         
@@ -44,7 +44,7 @@ class Database(object):
         
         import os
         os.chmod(self.path, 0664)
-
+    
     def addToRunsTable(self, startTime, command, commandLine, finishedSuccessfully, masterPid):
         
         self.getConnection()
@@ -60,9 +60,9 @@ class Database(object):
         #
         # if pid and startTime matches update the "finishedSuccessfully" entry
         #
-            if tmp1 == masterPid and tmp2 == startTime:
-                values = (startTime, command, commandLine, finishedSuccessfully, masterPid)
-                self.c.execute('UPDATE runs SET finishedSuccessfully=? WHERE masterPid=? AND startTime=?', (finishedSuccessfully,masterPid,startTime))
+                if tmp1 == masterPid and tmp2 == startTime:
+                    values = (startTime, command, commandLine, finishedSuccessfully, masterPid)
+                    self.c.execute('UPDATE runs SET finishedSuccessfully=? WHERE masterPid=? AND startTime=?', (finishedSuccessfully,masterPid,startTime))
         
         #
         # if not in the database add a new row
@@ -74,7 +74,7 @@ class Database(object):
         self.commitAndClose()
         
         return 0
-
+    
     def addSample(self, newSampleName,newSampleRefType=None):
         
         #
@@ -97,14 +97,14 @@ class Database(object):
         data = self.c.execute('SELECT sampleId,sampleName,refType FROM samples').fetchall()
         if data:
             for (sampleId,sampleName,sampleRefType) in data:
-            #sampleName = sampleName[0]
-            sampleNames.append(sampleName)
-            sampleIds.append(sampleId)
+                #sampleName = sampleName[0]
+                sampleNames.append(sampleName)
+                sampleIds.append(sampleId)
             if newSampleName in sampleNames:
-            msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# SampleName must be uniq, there is already a sample with name '+newSampleName+' , exiting.\n'
-            AnalysisPipe.logfile.write(msg)
-            sys.stderr.write(msg)
-            sys.exit(1)
+                msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# SampleName must be uniq, there is already a sample with name '+newSampleName+' , exiting.\n'
+                AnalysisPipe.logfile.write(msg)
+                sys.stderr.write(msg)
+                sys.exit(1)
     
         
         if sampleIds:  sampleId = max(sampleIds)+1
@@ -119,7 +119,7 @@ class Database(object):
         self.commitAndClose()
         
         return 0
-
+    
     def getSamples(self):
         #
         # Imports
@@ -138,13 +138,13 @@ class Database(object):
         data = self.c.execute('SELECT sampleId,sampleName,refType FROM samples').fetchall()
         if data:
             for (sampleId,sampleName,sampleRefType) in data:
-            if sampleRefType: refSamples.append( Sample(sampleName=sampleName,sampleId=int(sampleId),refType=sampleRefType) )
-            else:                samples.append( Sample(sampleName=sampleName,sampleId=int(sampleId),refType=None) )
+                if sampleRefType: refSamples.append( Sample(sampleName=sampleName,sampleId=int(sampleId),refType=sampleRefType) )
+                else:                samples.append( Sample(sampleName=sampleName,sampleId=int(sampleId),refType=None) )
         
         self.commitAndClose()
         
         return refSamples+samples
-
+    
     def updateFastqReadCount(self,sample):
     
         self.getConnection()
@@ -155,15 +155,15 @@ class Database(object):
         data = self.c.execute('SELECT filePairId,fastq1,fastq2,readCount,addedToReadsTable,minReadLength,sampleId FROM fastqs').fetchall()
         if data:
             for filePair in data:
-            if int(sample.id) == int(filePair[-1]):
-                filePairId,fastq1,fastq2,readCount,addedToReadsTable,minReadLength,sampleId = filePair
-                tmp = extractData(infile=sample.logPath+'/rubiconWgaTrimming.'+str(filePairId)+'.r1.log.txt',        pattern="Running wgaAdapterTrimmer.py\nProcessed a total of\t(?P<totalReads>\d+)\treads. \(.+\)\nProcessed a total of\t(?P<totalBases>\d+)\tbases \(.+\).\ntrimmed a total of\t(?P<trimmedBases>\d+)\tbases in the start of reads \(.+\).\nwgaAdapterTrimmer.py done exiting ...\n?")
-                if type(tmp) != str:newreadcount = int(tmp['totalReads'])
-                else: newreadcount = 'Unknown'
-                self.c.execute('UPDATE fastqs SET readCount=? WHERE filePairId=?', (newreadcount,filePairId))
+                if int(sample.id) == int(filePair[-1]):
+                    filePairId,fastq1,fastq2,readCount,addedToReadsTable,minReadLength,sampleId = filePair
+                    tmp = extractData(infile=sample.logPath+'/rubiconWgaTrimming.'+str(filePairId)+'.r1.log.txt',        pattern="Running wgaAdapterTrimmer.py\nProcessed a total of\t(?P<totalReads>\d+)\treads. \(.+\)\nProcessed a total of\t(?P<totalBases>\d+)\tbases \(.+\).\ntrimmed a total of\t(?P<trimmedBases>\d+)\tbases in the start of reads \(.+\).\nwgaAdapterTrimmer.py done exiting ...\n?")
+                    if type(tmp) != str:newreadcount = int(tmp['totalReads'])
+                    else: newreadcount = 'Unknown'
+                    self.c.execute('UPDATE fastqs SET readCount=? WHERE filePairId=?', (newreadcount,filePairId))
     
         self.commitAndClose()
-
+    
     def addFastqs(self, sampleNameOrId, fastq1, fastq2):
     
         #
@@ -186,8 +186,8 @@ class Database(object):
         sampleId = None
         try:
             if sampleNameOrId.isdigit() and (int(sampleNameOrId) in [sample.id for sample in samples]):
-            sampleId = int(sampleNameOrId);
-            sampleName = str(samplesbyId[int(sampleId)].name)
+                sampleId = int(sampleNameOrId);
+                sampleName = str(samplesbyId[int(sampleId)].name)
         except ValueError: pass
         if type(sampleId) == int and type(sampleName) == str: pass
         elif   sampleNameOrId  in samplesbyName.keys():
@@ -213,14 +213,14 @@ class Database(object):
         data = self.c.execute('SELECT filePairId,fastq1,fastq2 FROM fastqs').fetchall()
         if data:
             for filePair in data:
-            filePairId = int(filePair[0])
-            filePairIds.append(filePairId)
-            for fastq in [fastq1, fastq2]:
-                if fastq in filePair:
-                message = 'ERROR: '+fastq+' already in the database.\nExiting after error.'
-                print message
-                AnalysisPipe.logfile.write(message+'\n')
-                sys.exit(1)
+                filePairId = int(filePair[0])
+                filePairIds.append(filePairId)
+                for fastq in [fastq1, fastq2]:
+                    if fastq in filePair:
+                        message = 'ERROR: '+fastq+' already in the database.\nExiting after error.'
+                        print message
+                        AnalysisPipe.logfile.write(message+'\n')
+                        sys.exit(1)
         #
         # if not in the database add a new row
         #
@@ -238,7 +238,7 @@ class Database(object):
         self.commitAndClose()
         
         return 0
-
+    
     def getFastqs(self,):
         #
         # Imports
@@ -259,7 +259,7 @@ class Database(object):
         
         #return [[readCount,fastq1,fastq2] if (not addedToReadsTable) else None for filePairId,fastq1,fastq2,readCount,addedToReadsTable,minReadLength in filePairs]
         return [[filePairId,readCount,fastq1,fastq2,sampleId] for filePairId,fastq1,fastq2,readCount,addedToReadsTable,minReadLength,sampleId in filePairs]
-
+    
     def getRuns(self, runTypes):
     
         self.getConnection()
@@ -277,7 +277,7 @@ class Settings(object,):
     
     def __init__(self, ):
         """ object holding the settings used for each part of the analysis """
-	
+    
         self.defaultValues = {
             'debug':False,
             'uppmaxProject':'b2014005',
@@ -337,13 +337,13 @@ class Settings(object,):
     
         self.setDefaults()
     
-        def setDefaults(self,):
+    def setDefaults(self,):
         for variableName, value in self.defaultValues.iteritems():
             self.__dict__[variableName] = value
             self.isDefault[variableName] = True
             self.setTime[variableName] = None
         return 0
-
+    
     def loadFromDb(self,):
         
         import time
@@ -359,33 +359,33 @@ class Settings(object,):
         gotData = False
         while not gotData:
             try:
-            data = AnalysisPipe.database.c.execute('SELECT variableName,defaultValue,value,setTime FROM settings').fetchall()
-            gotData = True
+                data = AnalysisPipe.database.c.execute('SELECT variableName,defaultValue,value,setTime FROM settings').fetchall()
+                gotData = True
             except sqlite3.OperationalError:
-            time.sleep(1)
+                time.sleep(1)
         
         #
         # Parse data and add to object __dict__
         #
         if data:
             for variableName,default,value,setTime in data:
-            self.__dict__[variableName]  = value
-            self.isDefault[variableName] = default
-            self.setTime[variableName]   = setTime
+                self.__dict__[variableName]  = value
+                self.isDefault[variableName] = default
+                self.setTime[variableName]   = setTime
         
         #
         # close connection
         #
         AnalysisPipe.database.commitAndClose()
     
-        def setVariable(self,variableName,value):
+    def setVariable(self,variableName,value):
         import time
         assert variableName in self.explenations,'Error: you are trying to set an undefined variable.\n'
         self.__dict__[variableName]  = value
         self.isDefault[variableName] = False
         self.setTime[variableName]   = time.time()
         return 0
-
+    
     def saveToDb(self,):
         
         #
@@ -397,42 +397,42 @@ class Settings(object,):
         # get connection
         #
         AnalysisPipe.database.getConnection()
-        
-            #
-            # Look whats already in database, update it if older or default and set what is not
-            #
+
+        #
+        # Look whats already in database, update it if older or default and set what is not
+        #
         AnalysisPipe.logfile.write('checking whats in db.\n')
-            alreadyInDb = {}
+        alreadyInDb = {}
         data = AnalysisPipe.database.c.execute('SELECT variableName,defaultValue,value,setTime FROM settings').fetchall()
-            if data:
+        if data:
                 for variableName,default,value,setTime in data:
-            #AnalysisPipe.logfile.write('processing variable '+variableName+'')
-            alreadyInDb[variableName] = True
+                    #AnalysisPipe.logfile.write('processing variable '+variableName+'')
+                    alreadyInDb[variableName] = True
             
-            if variableName in self.__dict__:
-                if default and not self.isDefault[variableName] or setTime < self.setTime[variableName]:
-                if type(self.__dict__[variableName]) in [dict,list]: self.__dict__[variableName] = str(self.__dict__[variableName])
-                AnalysisPipe.logfile.write('processing variable '+variableName+''+', updating from '+str(value)+' to '+str(self.__dict__[variableName])+', old_setTime '+str(time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime(setTime)))+' new_setTime '+str(time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime(self.setTime[variableName])))+'.\n')
-                AnalysisPipe.database.c.execute('UPDATE settings SET defaultValue=?, value=?, setTime=? WHERE variableName=?', (self.isDefault[variableName],self.__dict__[variableName],self.setTime[variableName],variableName))
+                if variableName in self.__dict__:
+                    if default and not self.isDefault[variableName] or setTime < self.setTime[variableName]:
+                        if type(self.__dict__[variableName]) in [dict,list]: self.__dict__[variableName] = str(self.__dict__[variableName])
+                        AnalysisPipe.logfile.write('processing variable '+variableName+''+', updating from '+str(value)+' to '+str(self.__dict__[variableName])+', old_setTime '+str(time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime(setTime)))+' new_setTime '+str(time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime(self.setTime[variableName])))+'.\n')
+                        AnalysisPipe.database.c.execute('UPDATE settings SET defaultValue=?, value=?, setTime=? WHERE variableName=?', (self.isDefault[variableName],self.__dict__[variableName],self.setTime[variableName],variableName))
                 else: pass#AnalysisPipe.logfile.write(' no update needed.\n')
             
             #
             # Add new vars to database
             #
         AnalysisPipe.logfile.write('adding new vars to db:\n')
-            for variableName in self.__dict__:
+        for variableName in self.__dict__:
             if variableName in ['explenations','defaultValues','isDefault','setTime']:continue
             if variableName not in alreadyInDb:
-            if type(self.__dict__[variableName]) in [dict,list]: self.__dict__[variableName] = str(self.__dict__[variableName])
-            values = (variableName,self.isDefault[variableName],self.__dict__[variableName],self.setTime[variableName])
-            AnalysisPipe.database.c.execute('INSERT INTO settings VALUES (?,?,?,?)', values)
-            AnalysisPipe.logfile.write('variable '+variableName+' added to db with value '+str(self.__dict__[variableName])+',')
-            if self.isDefault[variableName]:AnalysisPipe.logfile.write(' this is the default value.\n')
-            else:AnalysisPipe.logfile.write(' non-default value.\n')
+                if type(self.__dict__[variableName]) in [dict,list]: self.__dict__[variableName] = str(self.__dict__[variableName])
+                values = (variableName,self.isDefault[variableName],self.__dict__[variableName],self.setTime[variableName])
+                AnalysisPipe.database.c.execute('INSERT INTO settings VALUES (?,?,?,?)', values)
+                AnalysisPipe.logfile.write('variable '+variableName+' added to db with value '+str(self.__dict__[variableName])+',')
+                if self.isDefault[variableName]:AnalysisPipe.logfile.write(' this is the default value.\n')
+                else:AnalysisPipe.logfile.write(' non-default value.\n')
             else: pass#SEAseqPipeLine.logfile.write('variable\t'+variableName+'\talready in db.\n')
             
         AnalysisPipe.logfile.write('commiting changes to database.\n')
-            AnalysisPipe.database.commitAndClose()
+        AnalysisPipe.database.commitAndClose()
         
         return 0
 

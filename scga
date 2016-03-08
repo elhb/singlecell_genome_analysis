@@ -15,294 +15,119 @@ def main():
 class AnalysisPipe(object):
 
     def __init__(self,):
-	
-	import sys
-	import os
-	import time
-	
-	AnalysisPipe.masterPid = os.getpid()
-
-	try:
-	    path = sys.argv[1]
-	    path = os.path.abspath(path)
-	    if path[-1] == '/': path = path[:-1]
-	    AnalysisPipe.path = path
-	    AnalysisPipe.programPath = os.path.abspath(sys.argv[0])
-	    if os.path.islink(AnalysisPipe.programPath ): AnalysisPipe.programPath = os.readlink(AnalysisPipe.programPath)
-	    AnalysisPipe.scriptPath    = '/'+'/'.join(AnalysisPipe.programPath.split('/')[:-1])
-	    AnalysisPipe.referencePath = '/'+'/'.join(AnalysisPipe.programPath.split('/')[:-2])+'/references'
-	except IndexError:
-	    sys.stderr.write('#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply a path on your commandline (currently: "'+' '.join(sys.argv)+'")\n')
-	    sys.exit(1)
-
-	AnalysisPipe.bowtie2Reference = '~/singleFatCellExomeAnalysis/references/GATKbundle/human_g1k_v37.fasta'
-	AnalysisPipe.picardLocation = '~/bin/picard-tools-1.114'
-	AnalysisPipe.gatkLocation = '~/singleFatCellExomeAnalysis/bin/GenomeAnalysisTK-3.1-1/GenomeAnalysisTK.jar'
-	AnalysisPipe.gatkBundleLocation = '~/singleFatCellExomeAnalysis/references/GATKbundle/'
-	AnalysisPipe.picardLocation = '/sw/apps/bioinfo/picard/1.114/milou/'
-	AnalysisPipe.gatkLocation = '/sw/apps/bioinfo/GATK/3.1.1/GenomeAnalysisTK.jar'
-
-	self.openLogfileConnection()
-	
-	return None
-
+        
+        import sys
+        import os
+        import time
+        
+        AnalysisPipe.masterPid = os.getpid()
+    
+        try:
+            path = sys.argv[1]
+            path = os.path.abspath(path)
+            if path[-1] == '/': path = path[:-1]
+            AnalysisPipe.path = path
+            AnalysisPipe.programPath = os.path.abspath(sys.argv[0])
+            if os.path.islink(AnalysisPipe.programPath ): AnalysisPipe.programPath = os.readlink(AnalysisPipe.programPath)
+            AnalysisPipe.scriptPath    = '/'+'/'.join(AnalysisPipe.programPath.split('/')[:-1])
+            AnalysisPipe.referencePath = '/'+'/'.join(AnalysisPipe.programPath.split('/')[:-2])+'/references'
+        except IndexError:
+            sys.stderr.write('#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply a path on your commandline (currently: "'+' '.join(sys.argv)+'")\n')
+            sys.exit(1)
+    
+        AnalysisPipe.bowtie2Reference = '~/singleFatCellExomeAnalysis/references/GATKbundle/human_g1k_v37.fasta'
+        AnalysisPipe.picardLocation = '~/bin/picard-tools-1.114'
+        AnalysisPipe.gatkLocation = '~/singleFatCellExomeAnalysis/bin/GenomeAnalysisTK-3.1-1/GenomeAnalysisTK.jar'
+        AnalysisPipe.gatkBundleLocation = '~/singleFatCellExomeAnalysis/references/GATKbundle/'
+        AnalysisPipe.picardLocation = '/sw/apps/bioinfo/picard/1.114/milou/'
+        AnalysisPipe.gatkLocation = '/sw/apps/bioinfo/GATK/3.1.1/GenomeAnalysisTK.jar'
+    
+        self.openLogfileConnection()
+        
+        return None
+    
     def getDataBase(self,):
-
-	import os
-	import time
-
-	AnalysisPipe.database = Database(self.path+'/data.db')
-	if not os.path.exists(AnalysisPipe.database.path): AnalysisPipe.database.create()
-	
-	AnalysisPipe.settings = Settings()
-	AnalysisPipe.settings.setDefaults()
-	AnalysisPipe.settings.loadFromDb()
-
-    def copyReport(self,):
-
-	import shutil
-	import os
-	import sys
-	import re
-
-	try: destination = sys.argv[-1]
-	except IndexError: pass
-
-	if os.path.exists(destination):
-	    if re.match('[Yy]([eE][sS])?',raw_input('The destination folder '+destination+' already excists do you want to delete it?\n')): shutil.rmtree(destination)
-
-	try: os.mkdir(destination)
-	except OSError: pass
-
-	shutil.copy(self.path+'/report.htm',destination+'/report.htm')
-	if os.path.exists(AnalysisPipe.path+'/graphics'): shutil.copytree(AnalysisPipe.path+'/graphics', destination+'/graphics')
-	
-	samplesById={sample.id:sample for sample in AnalysisPipe.database.getSamples()}
-	
-	os.mkdir(destination+'/samples')
-	doneIds = []
-	for filePairId,readCount,fastq1,fastq2,sampleId in AnalysisPipe.database.getFastqs():
-	    try:
-		if sampleId not in doneIds and sampleId in samplesById:
-		    sys.stderr.write('creating '+destination+'/samples/'+samplesById[int(sampleId)].name+'\n')
-		    os.mkdir(destination+'/samples/'+samplesById[int(sampleId)].name)
-		    if os.path.exists(samplesById[int(sampleId)].fastqcPath): shutil.copytree(samplesById[int(sampleId)].fastqcPath, destination+'/samples/'+samplesById[int(sampleId)].name+'/fastQC')
-		    if os.path.exists(samplesById[int(sampleId)].plotsPath ): shutil.copytree(samplesById[int(sampleId)].plotsPath, destination+'/samples/'+samplesById[int(sampleId)].name+'/plots')
-		doneIds.append(sampleId)
-	    except OSError: pass
-
+    
+        import os
+        import time
+        from database_functions import Database, Settings
+    
+        AnalysisPipe.database = Database(self.path+'/data.db')
+        if not os.path.exists(AnalysisPipe.database.path): AnalysisPipe.database.create()
+        
+        AnalysisPipe.settings = Settings()
+        AnalysisPipe.settings.setDefaults()
+        AnalysisPipe.settings.loadFromDb()
+    
     def run(self, ):
-	
-	import time
-	import sys
-	import socket
-	
-	try: self.action = sys.argv[2]
-	except IndexError:
-	    msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply an action on your commandline (currently: "'+' '.join(sys.argv)+'"), exiting.\n'
-	    AnalysisPipe.logfile.write(msg)
-	    sys.stderr.write(msg)
-	    sys.exit(1)
-	
-	self.getDataBase()
-	
-	import os
-	
-	AnalysisPipe.database.addToRunsTable(time.time(),self.action,' '.join(sys.argv),False,os.getpid())
-	AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Running '+' '.join(sys.argv)+'\n')
-	AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Hostname '+socket.gethostname()+'\n')
-
-	AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Action is '+sys.argv[2]+'\n')
-	if self.action == 'addSample':self.addSample()
-	elif self.action == 'addFastq':self.addFastq()
-	elif self.action == 'report':self.report()
-	elif self.action == 'createScripts':self.createScripts()
-	elif self.action == 'submitScripts':self.submitScripts()
-	elif self.action == 'makeGraphics':self.makeGraphics()
-	elif self.action == 'reSubmit':self.reSubmit()
-	elif self.action == 'copyReport':self.copyReport()
-	elif self.action == 'variationCheck':self.variationCheck()
-	elif self.action == 'changeSetting':self.changeSetting()
-	else:
-	    msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply a Valid action on your commandline (currently: "'+' '.join(sys.argv)+'"), exiting.\n'
-	    AnalysisPipe.logfile.write(msg)
-	    sys.stderr.write(msg)
-	    sys.exit(1)
-	    
-	AnalysisPipe.settings.saveToDb()
-
-    def reSubmit(self, remove=True):
-
-	import sys
-	import time
-	import glob
-	import os
-	import shutil
-	import re
-
-	try: sampleIdOrName = sys.argv[-1]
-	except IndexError:
-	    AnalysisPipe.logfile.write('#ERROR#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Bad command no sample id or name found ... \n')
-	    sys.stderr.write('#ERROR#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Bad command no sample id or name found ... \n')
-	    sys.exit()
-
-	try:
-	    submissionArray = sys.argv[-2]
-	    if not re.match('[01]{8}',submissionArray): submissionArray = None
-	    else:
-		submissionArray=[int(i) for i in submissionArray]
-	except IndexError: pass
-
-	try:
-	    project = sys.argv[3]
-	    AnalysisPipe.settings.setVariable('uppmaxProject',project)
-	except IndexError:
-	    msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# You must give a project number for the creation of sbatch scripts, exiting.\n'
-	    AnalysisPipe.logfile.write(msg)
-	    sys.stderr.write(msg)
-	    sys.exit(1)
-	try:
-	    wgsOrExome = sys.argv[4]
-	    AnalysisPipe.settings.setVariable('mode',wgsOrExome)
-	except IndexError:
-	    msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# You must give a type for the anaylis wgs or exome, now exiting.\n'
-	    AnalysisPipe.logfile.write(msg)
-	    sys.stderr.write(msg)
-	    sys.exit(1)
-
-
-	AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Creating sbatch scripts:\n')
-
-	sampleFound = False
-	for sample in AnalysisPipe.database.getSamples():
-	    
-	    if sampleIdOrName == sample.name or (sampleIdOrName.isdigit() and int(sampleIdOrName) == sample.id):
-
-		sampleFound = True
-		if submissionArray and remove:
-		    if submissionArray[0]: pass
-		    if submissionArray[1]: pass
-		    if submissionArray[2]: pass
-		    if submissionArray[3]: pass
-		    if submissionArray[4]: pass
-		    if submissionArray[5]: pass
-		    if submissionArray[6]: pass
-		    if submissionArray[7]: pass
-		elif remove:
-		    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Removing old sbatch scripts, data and logs ... \n')
-		    files = list(glob.iglob( sample.scriptPath+'/*' ))
-		    files+= list(glob.iglob( sample.dataPath  +'/*' ))
-		    files+= list(glob.iglob( sample.logPath   +'/*' ))
-		    files+= list(glob.iglob( sample.fastqcPath+'/*' ))
-		    for filename in files:
-			if os.path.isdir(filename): shutil.rmtree(filename);
-			else: os.remove(filename)
-			sys.stderr.write('removing '+filename+'\n')
-
-		AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# sample: '+sample.name+' ... \n')
-		try: sample.getFastqs().next()
-		except StopIteration:
-		    AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# No fastq files found for sample: '+sample.name+' continuing with next sample.\n')
-		    continue
-		sample.trimFastqs()
-		sample.mapFastqs()
-		sample.mergeMapped()
-		sample.filterAndFixMerged()
-		sample.realignerTargetCreator()
-		sample.reAlignAndReCalibrate()
-		sample.haplotypeCalling()
-		sample.qcSteps()
-	
-		allSampleDependency = []
-
-		AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitting sbatches for sample: '+sample.name+' ... \n')
-		try: sample.getFastqs().next()
-		except StopIteration:
-		    AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# No fastq files found for sample: '+sample.name+' continuing with next sample.\n')
-		    continue
-
-		jobid = None
-
-		dependency = []
-		for filePairId,readCount,fastq1,fastq2,sampleId in sample.getFastqs():
-
-		    if not submissionArray or submissionArray[0]:
-			fileName = sample.scriptPath+'/trimming.'+sample.name+'.'+str(filePairId)+'.sh'
-			jobid = submitSbatch(fileName)
-			AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted trimming of fastq '+str(filePairId)+' for '+sample.name+' with job id '+str(jobid)+' \n')
-
-		    if not submissionArray or submissionArray[1]:
-			fileName = sample.scriptPath+'/mapping.'+sample.name+'.'+str(filePairId)+'.sh'
-			jobid = submitSbatch(fileName,dependency=[jobid])
-			dependency.append(jobid)
-			AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted mapping of fastq '+str(filePairId)+' for '+sample.name+' with job id '+str(jobid)+' \n')
-
-		
-		if not submissionArray or submissionArray[2]:
-		    fileName = sample.scriptPath+'/mergeMapped.'+sample.name+'.sh'
-		    jobid = submitSbatch(fileName,dependency=dependency)
-		    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted mering of mapped data for '+sample.name+' with job id '+str(jobid)+' \n')
-
-		if not submissionArray or submissionArray[3]:
-		    fileName = sample.scriptPath+'/FilterAndFix.'+sample.name+'.sh'
-		    jobid = submitSbatch(fileName,dependency=[jobid])
-		    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted fixing the of merged data for '+sample.name+' with job id '+str(jobid)+' \n')
-
-		if not submissionArray or submissionArray[4]:
-		    fileName = sample.scriptPath+'/realignerTargetCreator.'+sample.name+'.sh'
-		    jobid = submitSbatch(fileName,dependency=[jobid])
-		    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted realignerTargetCreator of data for '+sample.name+' with job id '+str(jobid)+' \n')
-
-		if not submissionArray or submissionArray[5]:
-		    fileName = sample.scriptPath+'/reAlignAndReCalibrate.'+sample.name+'.sh'
-		    jobid = submitSbatch(fileName,dependency=[jobid])
-		    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted reAlignAndReCalibrate of data for '+sample.name+' with job id '+str(jobid)+' \n')
-
-		if not submissionArray or submissionArray[6]:
-		    fileName = sample.scriptPath+'/haplotypeCalling.'+sample.name+'.sh'
-		    hapJobid = submitSbatch(fileName,dependency=[jobid])
-		    allSampleDependency.append(hapJobid)
-		    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted haplotypecalling for '+sample.name+' with job id '+str(jobid)+' \n')
-
-		if not submissionArray or submissionArray[7]:
-		    fileName = sample.scriptPath+'/qcSteps.'+sample.name+'.sh'
-		    jobid = submitSbatch(fileName,dependency=[jobid])
-		    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted qc steps for '+sample.name+' with job id '+str(jobid)+' \n')
-
-	if not sampleFound:
-	    AnalysisPipe.logfile.write('#ERROR#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Sample '+str(sampleIdOrName)+' not found in database ... \n')
-	    sys.stderr.write(          '#ERROR#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Sample '+str(sampleIdOrName)+' not found in database ... \n')
-	    sys.exit()
-
+        
+        import time
+        import sys
+        import socket
+        
+        try: self.action = sys.argv[2]
+        except IndexError:
+            msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply an action on your commandline (currently: "'+' '.join(sys.argv)+'"), exiting.\n'
+            AnalysisPipe.logfile.write(msg)
+            sys.stderr.write(msg)
+            sys.exit(1)
+        
+        self.getDataBase()
+        
+        import os
+        
+        AnalysisPipe.database.addToRunsTable(time.time(),self.action,' '.join(sys.argv),False,os.getpid())
+        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Running '+' '.join(sys.argv)+'\n')
+        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Hostname '+socket.gethostname()+'\n')
+    
+        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Action is '+sys.argv[2]+'\n')
+        if self.action == 'addSample':self.addSample()
+        elif self.action == 'addFastq':self.addFastq()
+        elif self.action == 'report':self.report()
+        elif self.action == 'createScripts':self.createScripts()
+        elif self.action == 'submitScripts':self.submitScripts()
+        elif self.action == 'makeGraphics':self.makeGraphics()
+        elif self.action == 'reSubmit':self.reSubmit()
+        elif self.action == 'copyReport':self.copyReport()
+        elif self.action == 'variationCheck':self.variationCheck()
+        elif self.action == 'changeSetting':self.changeSetting()
+        else:
+            msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply a Valid action on your commandline (currently: "'+' '.join(sys.argv)+'"), exiting.\n'
+            AnalysisPipe.logfile.write(msg)
+            sys.stderr.write(msg)
+            sys.exit(1)
+            
+        AnalysisPipe.settings.saveToDb()
+    
     def addFastq(self,):
-
-	import sys
-	import time
-	
-	try: sample = sys.argv[3]
-	except IndexError:
-	    msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply a sample name on your commandline (currently: "'+' '.join(sys.argv)+'"), exiting.\n'
-	    AnalysisPipe.logfile.write(msg)
-	    sys.stderr.write(msg)
-	    sys.exit(1)
-
-	try:
-	    f1 = sys.argv[4]
-	    f2 = sys.argv[5]
-	except IndexError:
-	    msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply a pair of fastq files on your commandline (currently: "'+' '.join(sys.argv)+'"), exiting.\n'
-	    AnalysisPipe.logfile.write(msg)
-	    sys.stderr.write(msg)
-	    sys.exit(1)
-
-	AnalysisPipe.database.addFastqs(sample,f1,f2)
-
+        
+        import sys
+        import time
+        
+        try: sample = sys.argv[3]
+        except IndexError:
+            msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply a sample name on your commandline (currently: "'+' '.join(sys.argv)+'"), exiting.\n'
+            AnalysisPipe.logfile.write(msg)
+            sys.stderr.write(msg)
+            sys.exit(1)
+        
+        try:
+            f1 = sys.argv[4]
+            f2 = sys.argv[5]
+        except IndexError:
+            msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply a pair of fastq files on your commandline (currently: "'+' '.join(sys.argv)+'"), exiting.\n'
+            AnalysisPipe.logfile.write(msg)
+            sys.stderr.write(msg)
+            sys.exit(1)
+        
+        AnalysisPipe.database.addFastqs(sample,f1,f2)
+        
     def addSample(self, ):
-	import sys
-	import time
-	try: AnalysisPipe.database.addSample(sys.argv[3],newSampleRefType=sys.argv[4])
-	except IndexError: AnalysisPipe.database.addSample(sys.argv[3])
-
+        import sys
+        import time
+        try: AnalysisPipe.database.addSample(sys.argv[3],newSampleRefType=sys.argv[4])
+        except IndexError: AnalysisPipe.database.addSample(sys.argv[3])
+        
     def openLogfileConnection(self,):
         """ open a connection to the logfile, creates a logfile if none is present """
         
@@ -335,39 +160,39 @@ class AnalysisPipe(object):
             tmpLogMessages.append(tmpLogMessage)
             tmpLogMessage = '#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Looking for folder '+self.path+'...'
             tmpLogMessages.append(tmpLogMessage)
-	    if not os.path.isdir(self.path):
-		tmpLogMessage = '#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Path '+self.path+' not found creating...'
-		tmpLogMessages.append(tmpLogMessage)
-		os.mkdir(self.path)
+        if not os.path.isdir(self.path):
+            tmpLogMessage = '#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Path '+self.path+' not found creating...'
+            tmpLogMessages.append(tmpLogMessage)
+            os.mkdir(self.path)
             AnalysisPipe.logfile = open(AnalysisPipe.logfile,'w',1)
         
-	AnalysisPipe.logfile.write('\n'.join(tmpLogMessages)+'\n')
-	
+        AnalysisPipe.logfile.write('\n'.join(tmpLogMessages)+'\n')
+    
         return tmpLogMessages
-
+    
     def changeSetting(self,):
-
-	import sys
-	import time
-	
-	try:
-	    settings2change = sys.argv[3:]
-	    if not settings2change: raise IndexError
-	except IndexError:
-	    msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply atleast one variable name and value on your commandline on the format variableName=value or include the term "listsettings" to get a list of available variable names (currently: "'+' '.join(sys.argv)+'"), exiting.\n'
-	    AnalysisPipe.logfile.write(msg)
-	    sys.stderr.write(msg)
-	    sys.exit(1)
-	
-	if 'listsettings' in settings2change:
-	    longestName = max([len(x) for x in AnalysisPipe.settings.explenations.keys()])
-	    sys.stderr.write('VariableName:'+''.join(' ' for i in range(longestName-len('VariableName:')))+'\t'+'Description:'+'\n')
-	    for variableName, description in AnalysisPipe.settings.explenations.iteritems():
-		sys.stderr.write(variableName+''.join(' ' for i in range(longestName-len(variableName)))+'\t'+description+' (currentValue='+str(AnalysisPipe.settings.__dict__[variableName])+')\n')
-
-	for setting2change in settings2change:
-	    if setting2change == 'listsettings': continue
-	    variableName,value = setting2change.split('=')
-	    AnalysisPipe.settings.setVariable(variableName,value)
+        
+        import sys
+        import time
+        
+        try:
+            settings2change = sys.argv[3:]
+            if not settings2change: raise IndexError
+        except IndexError:
+            msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply atleast one variable name and value on your commandline on the format variableName=value or include the term "listsettings" to get a list of available variable names (currently: "'+' '.join(sys.argv)+'"), exiting.\n'
+            AnalysisPipe.logfile.write(msg)
+            sys.stderr.write(msg)
+            sys.exit(1)
+        
+        if 'listsettings' in settings2change:
+            longestName = max([len(x) for x in AnalysisPipe.settings.explenations.keys()])
+            sys.stderr.write('VariableName:'+''.join(' ' for i in range(longestName-len('VariableName:')))+'\t'+'Description:'+'\n')
+            for variableName, description in AnalysisPipe.settings.explenations.iteritems():
+                sys.stderr.write(variableName+''.join(' ' for i in range(longestName-len(variableName)))+'\t'+description+' (currentValue='+str(AnalysisPipe.settings.__dict__[variableName])+')\n')
+        
+        for setting2change in settings2change:
+            if setting2change == 'listsettings': continue
+            variableName,value = setting2change.split('=')
+            AnalysisPipe.settings.setVariable(variableName,value)
 
 if __name__ == "__main__": main()

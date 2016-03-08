@@ -35,12 +35,6 @@ class AnalysisPipe(object):
 	    sys.stderr.write('#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply a path on your commandline (currently: "'+' '.join(sys.argv)+'")\n')
 	    sys.exit(1)
 
-	AnalysisPipe.bowtie2Reference = '~/singleFatCellExomeAnalysis/references/GATKbundle/human_g1k_v37.fasta'
-	AnalysisPipe.picardLocation = '~/bin/picard-tools-1.114'
-	AnalysisPipe.gatkLocation = '~/singleFatCellExomeAnalysis/bin/GenomeAnalysisTK-3.1-1/GenomeAnalysisTK.jar'
-	AnalysisPipe.gatkBundleLocation = '~/singleFatCellExomeAnalysis/references/GATKbundle/'
-	AnalysisPipe.picardLocation = '/sw/apps/bioinfo/picard/1.114/milou/'
-	AnalysisPipe.gatkLocation = '/sw/apps/bioinfo/GATK/3.1.1/GenomeAnalysisTK.jar'
 
 	self.openLogfileConnection()
 	

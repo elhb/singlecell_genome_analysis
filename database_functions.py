@@ -1,7 +1,8 @@
 class Database(object):
 
-    def __init__(self, dbPath):
+    def __init__(self, dbPath, analysispipe):
         self.path = dbPath
+        self.analysispipe = analysispipe
     
     def getConnection(self,):
         #
@@ -101,19 +102,21 @@ class Database(object):
                 sampleNames.append(sampleName)
                 sampleIds.append(sampleId)
             if newSampleName in sampleNames:
-                msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# SampleName must be uniq, there is already a sample with name '+newSampleName+' , exiting.\n'
-                AnalysisPipe.logfile.write(msg)
+                msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# SampleName must be uniq, there is already a sample with name '+newSampleName+' , exiting.\n'
+                self.analysispipe.logfile.write(msg)
                 sys.stderr.write(msg)
                 sys.exit(1)
     
         
         if sampleIds:  sampleId = max(sampleIds)+1
         else:          sampleId = 0 
-        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Adding sample '+newSampleName+' to database with id '+str(sampleId)+'.\n')
+        self.analysispipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Adding sample '+newSampleName+' to database with id '+str(sampleId)+'.\n')
         values = (sampleId,newSampleName,newSampleRefType)
         self.c.execute('INSERT INTO samples VALUES (?,?,?)', values)
         
-        sample = Sample(sampleName=newSampleName, sampleId=sampleId,refType=newSampleRefType)
+        from sample import Sample
+        
+        sample = Sample(sampleName=newSampleName, sampleId=sampleId,refType=newSampleRefType, analysispipe=self.analysispipe)
         sample.createDirs()
         
         self.commitAndClose()
@@ -176,7 +179,7 @@ class Database(object):
         fastq1 = os.path.abspath(fastq1)
         fastq2 = os.path.abspath(fastq2)
         
-        samples = AnalysisPipe.database.getSamples()
+        samples = self.analysispipe.database.getSamples()
         samplesbyName = {}
         samplesbyId = {}
         for sample in samples:
@@ -194,8 +197,8 @@ class Database(object):
             sampleName = sampleNameOrId;
             sampleId = samplesbyName[sampleName].id
         else:
-            msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# SampleName (or id) must be registered in the database, there is no sample with name or id '+str(sampleNameOrId)+' ('+str(type(sampleNameOrId))+') , exiting.\n'
-            AnalysisPipe.logfile.write(msg)
+            msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# SampleName (or id) must be registered in the database, there is no sample with name or id '+str(sampleNameOrId)+' ('+str(type(sampleNameOrId))+') , exiting.\n'
+            self.analysispipe.logfile.write(msg)
             sys.stderr.write(msg)
             sys.exit(1)
     
@@ -219,14 +222,14 @@ class Database(object):
                     if fastq in filePair:
                         message = 'ERROR: '+fastq+' already in the database.\nExiting after error.'
                         print message
-                        AnalysisPipe.logfile.write(message+'\n')
+                        self.analysispipe.logfile.write(message+'\n')
                         sys.exit(1)
         #
         # if not in the database add a new row
         #
-        AnalysisPipe.logfile.write('Getting readcount for file'+fastq1+' ... \n')
+        self.analysispipe.logfile.write('Getting readcount for file'+fastq1+' ... \n')
         readCount = 'Unknown'#bufcount(fastq1)/4 #one read is four lines
-        AnalysisPipe.logfile.write('...done. The file has '+str(readCount)+' reads.\n')
+        self.analysispipe.logfile.write('...done. The file has '+str(readCount)+' reads.\n')
         addedToReadsTable = False#SEAseqPipeLine.startTimeStr
         minReadLength = 'NA'
     
@@ -275,16 +278,16 @@ class Database(object):
 
 class Settings(object,):
     
-    def __init__(self, ):
+    def __init__(self, analysispipe):
         """ object holding the settings used for each part of the analysis """
+        
+        self.analysispipe = analysispipe
     
         self.defaultValues = {
             'debug':False,
             'uppmaxProject':'b2014005',
             'parallelProcesses':16,
             'mode':'exome',
-            'patientAndDonorDPcutoff':20,
-            'patientAndDonorGQcutoff':30,
             'sampleIdentificationDPcutoff':1,
             'sampleIdentificationGQcutoff':1,
             'referenceSampleDPcutoff':20,
@@ -301,8 +304,6 @@ class Settings(object,):
             'uppmaxProject':'Project id used at uppmax for sbatch scripts [bXXXXXXX] (default=b2014005)',
             'parallelProcesses':'Number of process to run when doing multiprocess parts of analysis (defaul=16)',
             'mode':'Type of analysis either Whole genome seguencing (wgs) or exome sequencing (exome) [wgs/exome] (default=exome)',
-            'patientAndDonorDPcutoff':'read depth cutoff for variation filtering during identification of informative variants to use when identifing cell origin (defaul=20)',
-            'patientAndDonorGQcutoff':'genotype quality cutoff for variation filtering during identification of informative variants to use when identifing cell origin (defaul=30)',
             'sampleIdentificationDPcutoff':'read depth cutoff for variation in each sample filtering during identification of cell origin (defaul=1)',
             'sampleIdentificationGQcutoff':'genotype quality cutoff for variation in each sample filtering during identification of cell origin (defaul=1)',
             'referenceSampleDPcutoff':'read depth cutoff for variation filtering during identification of informative variants to use when estimating ADO (defaul=20)',
@@ -318,12 +319,11 @@ class Settings(object,):
         self.isDefault = {}
         self.setTime = {}
     
+        # variable
         self.debug = None
         self.uppmaxProject = None
         self.parallelProcesses = None
         self.mode = None
-        self.patientAndDonorDPcutoff = None
-        self.patientAndDonorGQcutoff = None
         self.sampleIdentificationDPcutoff = None
         self.sampleIdentificationGQcutoff = None
         self.referenceSampleDPcutoff = None
@@ -347,11 +347,12 @@ class Settings(object,):
     def loadFromDb(self,):
         
         import time
+        import sqlite3
         
         #
         # Get the connection
         #
-        AnalysisPipe.database.getConnection()
+        self.analysispipe.database.getConnection()
         
         #
         # Select data
@@ -359,7 +360,7 @@ class Settings(object,):
         gotData = False
         while not gotData:
             try:
-                data = AnalysisPipe.database.c.execute('SELECT variableName,defaultValue,value,setTime FROM settings').fetchall()
+                data = self.analysispipe.database.c.execute('SELECT variableName,defaultValue,value,setTime FROM settings').fetchall()
                 gotData = True
             except sqlite3.OperationalError:
                 time.sleep(1)
@@ -376,7 +377,7 @@ class Settings(object,):
         #
         # close connection
         #
-        AnalysisPipe.database.commitAndClose()
+        self.analysispipe.database.commitAndClose()
     
     def setVariable(self,variableName,value):
         import time
@@ -396,43 +397,42 @@ class Settings(object,):
         #
         # get connection
         #
-        AnalysisPipe.database.getConnection()
+        self.analysispipe.database.getConnection()
 
         #
         # Look whats already in database, update it if older or default and set what is not
         #
-        AnalysisPipe.logfile.write('checking whats in db.\n')
+        self.analysispipe.logfile.write('checking whats in db.\n')
         alreadyInDb = {}
-        data = AnalysisPipe.database.c.execute('SELECT variableName,defaultValue,value,setTime FROM settings').fetchall()
+        data = self.analysispipe.database.c.execute('SELECT variableName,defaultValue,value,setTime FROM settings').fetchall()
         if data:
-                for variableName,default,value,setTime in data:
-                    #AnalysisPipe.logfile.write('processing variable '+variableName+'')
-                    alreadyInDb[variableName] = True
+            for variableName,default,value,setTime in data:
+                #self.analysispipe.logfile.write('processing variable '+variableName+'')
+                alreadyInDb[variableName] = True
             
                 if variableName in self.__dict__:
                     if default and not self.isDefault[variableName] or setTime < self.setTime[variableName]:
                         if type(self.__dict__[variableName]) in [dict,list]: self.__dict__[variableName] = str(self.__dict__[variableName])
-                        AnalysisPipe.logfile.write('processing variable '+variableName+''+', updating from '+str(value)+' to '+str(self.__dict__[variableName])+', old_setTime '+str(time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime(setTime)))+' new_setTime '+str(time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime(self.setTime[variableName])))+'.\n')
-                        AnalysisPipe.database.c.execute('UPDATE settings SET defaultValue=?, value=?, setTime=? WHERE variableName=?', (self.isDefault[variableName],self.__dict__[variableName],self.setTime[variableName],variableName))
-                else: pass#AnalysisPipe.logfile.write(' no update needed.\n')
+                        self.analysispipe.logfile.write('processing variable '+variableName+''+', updating from '+str(value)+' to '+str(self.__dict__[variableName])+', old_setTime '+str(time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime(setTime)))+' new_setTime '+str(time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime(self.setTime[variableName])))+'.\n')
+                        self.analysispipe.database.c.execute('UPDATE settings SET defaultValue=?, value=?, setTime=? WHERE variableName=?', (self.isDefault[variableName],self.__dict__[variableName],self.setTime[variableName],variableName))
+                else: pass#self.analysispipe.logfile.write(' no update needed.\n')
             
-            #
-            # Add new vars to database
-            #
-        AnalysisPipe.logfile.write('adding new vars to db:\n')
+        #
+        # Add new vars to database
+        #
+        self.analysispipe.logfile.write('adding new vars to db:\n')
         for variableName in self.__dict__:
-            if variableName in ['explenations','defaultValues','isDefault','setTime']:continue
+            if variableName in ['explenations','defaultValues','isDefault','setTime','analysispipe']:continue # these are not variables but holders of information so skip them
             if variableName not in alreadyInDb:
                 if type(self.__dict__[variableName]) in [dict,list]: self.__dict__[variableName] = str(self.__dict__[variableName])
-                values = (variableName,self.isDefault[variableName],self.__dict__[variableName],self.setTime[variableName])
-                AnalysisPipe.database.c.execute('INSERT INTO settings VALUES (?,?,?,?)', values)
-                AnalysisPipe.logfile.write('variable '+variableName+' added to db with value '+str(self.__dict__[variableName])+',')
-                if self.isDefault[variableName]:AnalysisPipe.logfile.write(' this is the default value.\n')
-                else:AnalysisPipe.logfile.write(' non-default value.\n')
+                values = ( variableName, self.isDefault[variableName], self.__dict__[variableName], self.setTime[variableName] )
+                self.analysispipe.database.c.execute('INSERT INTO settings VALUES (?,?,?,?)', values)
+                self.analysispipe.logfile.write('variable '+variableName+' added to db with value '+str(self.__dict__[variableName])+',')
+                if self.isDefault[variableName]:self.analysispipe.logfile.write(' this is the default value.\n')
+                else:self.analysispipe.logfile.write(' non-default value.\n')
             else: pass#SEAseqPipeLine.logfile.write('variable\t'+variableName+'\talready in db.\n')
             
-        AnalysisPipe.logfile.write('commiting changes to database.\n')
-        AnalysisPipe.database.commitAndClose()
+        self.analysispipe.logfile.write('commiting changes to database.\n')
+        self.analysispipe.database.commitAndClose()
         
         return 0
-

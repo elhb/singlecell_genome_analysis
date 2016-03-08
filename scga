@@ -52,10 +52,10 @@ class AnalysisPipe(object):
         import time
         from database_functions import Database, Settings
     
-        AnalysisPipe.database = Database(self.path+'/data.db')
+        AnalysisPipe.database = Database(self.path+'/data.db', self)
         if not os.path.exists(AnalysisPipe.database.path): AnalysisPipe.database.create()
         
-        AnalysisPipe.settings = Settings()
+        AnalysisPipe.settings = Settings(self)
         AnalysisPipe.settings.setDefaults()
         AnalysisPipe.settings.loadFromDb()
     
@@ -79,22 +79,19 @@ class AnalysisPipe(object):
         AnalysisPipe.database.addToRunsTable(time.time(),self.action,' '.join(sys.argv),False,os.getpid())
         AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Running '+' '.join(sys.argv)+'\n')
         AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Hostname '+socket.gethostname()+'\n')
-    
+
+        #
+        # check for valid action
+        #
         AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Action is '+sys.argv[2]+'\n')
         if self.action == 'addSample':self.addSample()
         elif self.action == 'addFastq':self.addFastq()
-        elif self.action == 'report':self.report()
-        elif self.action == 'createScripts':self.createScripts()
-        elif self.action == 'submitScripts':self.submitScripts()
-        elif self.action == 'makeGraphics':self.makeGraphics()
-        elif self.action == 'reSubmit':self.reSubmit()
-        elif self.action == 'copyReport':self.copyReport()
-        elif self.action == 'variationCheck':self.variationCheck()
         elif self.action == 'changeSetting':self.changeSetting()
         else:
             msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply a Valid action on your commandline (currently: "'+' '.join(sys.argv)+'"), exiting.\n'
             AnalysisPipe.logfile.write(msg)
             sys.stderr.write(msg)
+            sys.stderr.write('\n'+self.getReadme())
             sys.exit(1)
             
         AnalysisPipe.settings.saveToDb()
@@ -193,6 +190,19 @@ class AnalysisPipe(object):
         for setting2change in settings2change:
             if setting2change == 'listsettings': continue
             variableName,value = setting2change.split('=')
-            AnalysisPipe.settings.setVariable(variableName,value)
+            self.settings.setVariable(variableName,value)
+            self.settings.saveToDb()
+
+    def getReadme(self):
+        """ function that gets the information from the readme file
+        """
+        
+        import os
+    
+        filehandle = open( '/'.join(os.path.realpath(__file__).split('/')[:-1]) + '/README.md' )
+        data = filehandle.read()
+        filehandle.close()
+        
+        return data
 
 if __name__ == "__main__": main()

@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+#
+# The program starts with execution of the "main"-function
+#
 def main():
     
     import sys
@@ -12,6 +15,10 @@ def main():
     app = AnalysisPipe()
     app.run()
 
+
+#
+# The init function is always run first when the object AnalysisPipe is created.
+#
 class AnalysisPipe(object):
 
     def __init__(self,):
@@ -53,7 +60,8 @@ class AnalysisPipe(object):
         AnalysisPipe.settings = Settings(self)
         AnalysisPipe.settings.setDefaults()
         AnalysisPipe.settings.loadFromDb()
-    
+
+
     def run(self, ):
         
         import time
@@ -82,6 +90,7 @@ class AnalysisPipe(object):
         if self.action == 'addSample':self.addSample()
         elif self.action == 'addFastq':self.addFastq()
         elif self.action == 'changeSetting':self.changeSetting()
+        elif self.action == 'createScripts':self.createScripts()
         else:
             msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply a Valid action on your commandline (currently: "'+' '.join(sys.argv)+'"), exiting.\n'
             AnalysisPipe.logfile.write(msg)
@@ -90,7 +99,20 @@ class AnalysisPipe(object):
             sys.exit(1)
             
         AnalysisPipe.settings.saveToDb()
+   
+
+ 
+    def createScripts(self, ):
     
+        from mapping_functions import SampleMapper
+	alloursamples_list = self.database.getSamples()
+        samplemapper_object = SampleMapper(self)
+        for sample in alloursamples_list:
+            samplemapper_object.Bowtie2_mapping(sample)
+
+        
+
+
     def addFastq(self,):
         
         import sys
@@ -199,5 +221,9 @@ class AnalysisPipe(object):
         filehandle.close()
         
         return data
+
+
+ 
+
 
 if __name__ == "__main__": main()

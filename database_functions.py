@@ -298,7 +298,9 @@ class Settings(object,):
             'RDoverchromYscaleMax':0,
             'skiprubicon':0,
             'skipmalbac':0,
-            'skipampli1':0
+            'skipampli1':0,
+            'bowtie2Reference':'/sw/data/uppnex/reference/Homo_sapiens/GRCh37/program_files/bowtie2/concat',
+            'picardLocation': 'dummy'
         }
         self.explenations = {
             'debug':'Flag for running the scripts in multiprocessing or as single process run [True/False] (default=False), Not functional',
@@ -314,7 +316,9 @@ class Settings(object,):
             'RDoverchromYscaleMax':'the max value for the y scale of the RD over chrom graphs, 0 means automatic for each sample and chrom',
             'skiprubicon':'flag for skipping rubicon wga adapter trimming (default 0/False)',
             'skipmalbac':'flag for skipping malbac wga adapter trimming (default 0/False)',
-            'skipampli1':'flag for skipping ampliOne wga adapter trimming (default 0/False)'
+            'skipampli1':'flag for skipping ampliOne wga adapter trimming (default 0/False)',
+            'bowtie2Reference': 'pathway to bowtie2 reference',
+            'picardLocation': 'pathway to picard' 
     
             }
         self.isDefault = {}
@@ -335,7 +339,8 @@ class Settings(object,):
         self.skiprubicon = None
         self.skipmalbac = None
         self.skipampli1 = None
-    
+        self.bowtie2Reference = None
+        self.picardLocation = None     
         self.setDefaults()
     
     def setDefaults(self,):

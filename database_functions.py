@@ -129,6 +129,7 @@ class Database(object):
         #
         import sys
         import time
+        from sample import Sample
         
         #
         # open connection to database
@@ -141,8 +142,8 @@ class Database(object):
         data = self.c.execute('SELECT sampleId,sampleName,refType FROM samples').fetchall()
         if data:
             for (sampleId,sampleName,sampleRefType) in data:
-                if sampleRefType: refSamples.append( Sample(sampleName=sampleName,sampleId=int(sampleId),refType=sampleRefType) )
-                else:                samples.append( Sample(sampleName=sampleName,sampleId=int(sampleId),refType=None) )
+                if sampleRefType: refSamples.append( Sample(sampleName=sampleName,sampleId=int(sampleId),refType=sampleRefType,analysispipe=self.analysispipe) )
+                else:                samples.append( Sample(sampleName=sampleName,sampleId=int(sampleId),refType=None,analysispipe=self.analysispipe) )
         
         self.commitAndClose()
         

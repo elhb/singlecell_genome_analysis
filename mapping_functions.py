@@ -25,15 +25,11 @@ class SampleMapper():
 
 	    #
 	    # Bowtie2 mapping
-	    #output += 'module load bioinfo-tools pysam bwa/0.7.8\n'
-	    #output += 'bwa mem -t 16 /sw/data/uppnex/reference/Homo_sapiens/GRCh37/program_files/bwa/concat.fa '+sample.r1files[0]+' '+sample.r2files[0]+' > '+sample.sam+'\n'
-	    #output += 'bowtie2 -1 '+sample.r1files[0]+' -2 '+sample.r2files[0]+' --very-sensitive-local -p16 -x '+sample.reference+' > '+sample.sam+'\n'
+        #
 	    output += 'bowtie2 --maxins 2000 -p16 '
 	    output += '-1 '+sample.dataPath+'/'+str(filePairId)+'.r1.allTrimmed.fq.gz '
 	    output += '-2 '+sample.dataPath+'/'+str(filePairId)+'.r2.allTrimmed.fq.gz '
-#	    output += '-U '+sample.dataPath+'/'+str(filePairId)+'.singletts.fq.gz '
 	    output += '-x '+self.analysispipe.settings.bowtie2Reference+' '
-	    #output += '> '+sample.tempPath+'/'+str(filePairId)+'.sam '
 	    output += '2> '+sample.logPath+'/stderr.bowtie2.'+str(filePairId)+'.txt |'
 	    #
 	    # convert to bam file
@@ -53,11 +49,9 @@ class SampleMapper():
 	    #
 	    # Final output and write script to file
 	    #
-	    #output += '\n'+self.analysispipe.programPath+' '+self.analysispipe.path+' report\n'
 	    output += 'wait'+'\n'
 	    output += 'echo "$(date) AllDone"'+'\n'
 	    output += 'echo "$(date) AllDone" >&2'+'\n'
-
             output_file.write(output)
             output_file.close()
        

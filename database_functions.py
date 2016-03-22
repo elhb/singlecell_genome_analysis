@@ -300,11 +300,15 @@ class Settings(object,):
             'skipmalbac':0,
             'skipampli1':0,
             'bowtie2Reference':'/sw/data/uppnex/reference/Homo_sapiens/GRCh37/program_files/bowtie2/concat',
-            'picardLocation': 'dummy'
+            'picardLocation':'/sw/apps/bioinfo/picard/1.114/milou/',
+            'wga_trimmer':'pathway_trimScripts',
+            'TrimBWA':'pathway_trimScripts',
+            'removeEmptyReads':'pathway_trimScripts'
+        
         }
         self.explenations = {
             'debug':'Flag for running the scripts in multiprocessing or as single process run [True/False] (default=False), Not functional',
-            'uppmaxProject':'Project id used at uppmax for sbatch scripts [bXXXXXXX] (default=b2014005)',
+            'uppmaxProject':'Project id used at uppmax for sbatch scripts [bXXXXXXX] (default=b2011168)',
             'parallelProcesses':'Number of process to run when doing multiprocess parts of analysis (defaul=16)',
             'mode':'Type of analysis either Whole genome seguencing (wgs) or exome sequencing (exome) [wgs/exome] (default=exome)',
             'sampleIdentificationDPcutoff':'read depth cutoff for variation in each sample filtering during identification of cell origin (defaul=1)',
@@ -318,7 +322,11 @@ class Settings(object,):
             'skipmalbac':'flag for skipping malbac wga adapter trimming (default 0/False)',
             'skipampli1':'flag for skipping ampliOne wga adapter trimming (default 0/False)',
             'bowtie2Reference': 'pathway to bowtie2 reference',
-            'picardLocation': 'pathway to picard' 
+            'picardLocation': 'pathway to picard',
+            'wga_trimmer':'pathway to folder containing trim scripts',
+            'TrimBWA':'pathway to folder containing trim scripts',
+            'removeEmptyReads':'pathway to folder containing trim scripts'
+            
     
             }
         self.isDefault = {}
@@ -340,7 +348,10 @@ class Settings(object,):
         self.skipmalbac = None
         self.skipampli1 = None
         self.bowtie2Reference = None
-        self.picardLocation = None     
+        self.picardLocation = None
+        self.wga_trimmer = None
+        self.TrimBWA = None
+        self.removeEmptyReads = None
         self.setDefaults()
     
     def setDefaults(self,):

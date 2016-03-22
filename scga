@@ -105,12 +105,17 @@ class AnalysisPipe(object):
     def createScripts(self, ):
     
         from mapping_functions import SampleMapper
-	alloursamples_list = self.database.getSamples()
+        alloursamples_list = self.database.getSamples()
         samplemapper_object = SampleMapper(self)
         for sample in alloursamples_list:
             samplemapper_object.Bowtie2_mapping(sample)
+            
+        from trimming_functions import SampleTrimmer
+        alloursamples_list = self.database.getSamples()
+        sampletrimmer_object = SampleTrimmer(self)
+        for sample in alloursamples_list:
+            sampletrimmer_object.trimming(sample)
 
-        
 
 
     def addFastq(self,):

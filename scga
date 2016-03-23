@@ -114,6 +114,12 @@ class AnalysisPipe(object):
         sampletrimmer_object = SampleTrimmer(self)
         for sample in alloursamples_list:
             sampletrimmer_object.trimming(sample)
+            
+        from merge_functions import SampleMerger
+        alloursamples_list = self.database.getSamples()
+        samplemerger_object = SampleMerger(self)
+        for sample in alloursamples_list:
+            samplemerger_object.merge_mapped_reads(sample)
 
 
 

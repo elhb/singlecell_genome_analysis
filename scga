@@ -22,11 +22,10 @@ def main():
 class AnalysisPipe(object):
 
     def __init__(self,):
-	
         import sys
         import os
         import time
-	
+
         AnalysisPipe.masterPid = os.getpid()
 
         try:
@@ -44,7 +43,7 @@ class AnalysisPipe(object):
 
 
         self.openLogfileConnection()
-	
+
         return None
 
 

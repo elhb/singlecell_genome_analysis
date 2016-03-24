@@ -120,6 +120,12 @@ class AnalysisPipe(object):
         samplemerger_object = SampleMerger(self)
         for sample in alloursamples_list:
             samplemerger_object.merge_mapped_reads(sample)
+            
+        from filter_fix_functions import SampleFilterAndFix
+        alloursamples_list = self.database.getSamples()
+        samplefnf_object = SampleFilterAndFix(self)
+        for sample in alloursamples_list:
+            samplefnf_object.filter_and_fix(sample)
 
 
 

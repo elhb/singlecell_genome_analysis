@@ -301,11 +301,13 @@ class Settings(object,):
             'skipampli1':0,
             'bowtie2Reference':'/sw/data/uppnex/reference/Homo_sapiens/GRCh37/program_files/bowtie2/concat',
             'picardLocation':'/sw/apps/bioinfo/picard/1.114/milou/',
-            'wga_trimmer':'pathway_trimScripts',
-            'TrimBWA':'pathway_trimScripts',
-            'removeEmptyReads':'pathway_trimScripts',
-            'GATKlocation':'pathway_to_GATK',
-            'GATKbundleLocation':'pathway_to_GATKbundle'
+            'wga_trimmer':'pathway/trimScripts/',
+            'TrimBWA':'pathway/trimScripts/',
+            'removeEmptyReads':'pathway/trimScripts/',
+            'GATKlocation':'pathway/GATK/',
+            'GATKbundleLocation':'pathway/GATKbundle/',
+            'targets':'pathway/wgstargets/',
+            'program_path':'pathway/scga/'
         
         }
         self.explenations = {
@@ -329,7 +331,9 @@ class Settings(object,):
             'TrimBWA':'pathway to folder containing trim scripts',
             'removeEmptyReads':'pathway to folder containing trim scripts',
             'GATKlocation':'pathway to GATK',
-            'GATKbundleLocation':'pathway to GATK bundle'
+            'GATKbundleLocation':'pathway to GATK bundle',
+            'targets':'pathway to wgs targets',
+            'program_path':'pathway to scga on uppmax'
             
     
             }
@@ -358,6 +362,8 @@ class Settings(object,):
         self.removeEmptyReads = None
         self.GATKlocation = None
         self.GATKbundleLocation = None
+        self.targets = None
+        self.program_path = None
         self.setDefaults()
     
     def setDefaults(self,):

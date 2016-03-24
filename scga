@@ -138,6 +138,18 @@ class AnalysisPipe(object):
         samplerealign_object = SampleReAlignAndReCalibrator(self)
         for sample in alloursamples_list:
             samplerealign_object.realign_and_recalibrate(sample)
+            
+        from haplotype_calling_functions import SampleHaplotypeCaller
+        alloursamples_list = self.database.getSamples()
+        samplehaplotypecaller_object = SampleHaplotypeCaller(self)
+        for sample in alloursamples_list:
+            samplehaplotypecaller_object.haplotype_calling(sample)
+            
+        from qc_functions import SampleQC
+        alloursamples_list = self.database.getSamples()
+        sampleqc_object = SampleQC(self)
+        for sample in alloursamples_list:
+            sampleqc_object.qcSteps(sample)
 
 
 

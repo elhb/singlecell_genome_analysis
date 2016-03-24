@@ -126,6 +126,12 @@ class AnalysisPipe(object):
         samplefnf_object = SampleFilterAndFix(self)
         for sample in alloursamples_list:
             samplefnf_object.filter_and_fix(sample)
+              
+        from realignerTC_functions import SampleRealignTargetCreator
+        alloursamples_list = self.database.getSamples()
+        samplerealTC_object = SampleRealignTargetCreator(self)
+        for sample in alloursamples_list:
+            samplerealTC_object.realign_target_creator(sample)
 
 
 

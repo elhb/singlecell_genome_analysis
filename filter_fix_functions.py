@@ -6,7 +6,7 @@ class SampleFilterAndFix():
         
     def filter_and_fix(self, sample):
         for filePairId,readCount,fastq1,fastq2,sampleId in sample.getFastqs():
-            output_file = open(sample.scriptPath+'/merge.'+str(filePairId)+'.sbatch.sh', 'w')
+            output_file = open(sample.scriptPath+'/fnf.'+str(filePairId)+'.sbatch.sh', 'w')
             
         #
         # sbatch header
@@ -76,5 +76,9 @@ class SampleFilterAndFix():
         output += 'wait'+'\n'
         output += 'echo "$(date) AllDone"'+'\n'
         output += 'echo "$(date) AllDone" >&2'+'\n'
-        with open(sample.scriptPath+'/FilterAndFix.'+sample.name+'.sh','w') as outfile: outfile.write(output)
+        
+        output_file.write(output)
+        output_file.close()
+        
+        
 

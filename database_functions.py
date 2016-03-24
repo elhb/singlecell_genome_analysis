@@ -303,7 +303,9 @@ class Settings(object,):
             'picardLocation':'/sw/apps/bioinfo/picard/1.114/milou/',
             'wga_trimmer':'pathway_trimScripts',
             'TrimBWA':'pathway_trimScripts',
-            'removeEmptyReads':'pathway_trimScripts'
+            'removeEmptyReads':'pathway_trimScripts',
+            'GATKlocation':'pathway_to_GATK',
+            'GATKbundleLocation':'pathway_to_GATKbundle'
         
         }
         self.explenations = {
@@ -325,7 +327,9 @@ class Settings(object,):
             'picardLocation': 'pathway to picard',
             'wga_trimmer':'pathway to folder containing trim scripts',
             'TrimBWA':'pathway to folder containing trim scripts',
-            'removeEmptyReads':'pathway to folder containing trim scripts'
+            'removeEmptyReads':'pathway to folder containing trim scripts',
+            'GATKlocation':'pathway to GATK',
+            'GATKbundleLocation':'pathway to GATK bundle'
             
     
             }
@@ -352,6 +356,8 @@ class Settings(object,):
         self.wga_trimmer = None
         self.TrimBWA = None
         self.removeEmptyReads = None
+        self.GATKlocation = None
+        self.GATKbundleLocation = None
         self.setDefaults()
     
     def setDefaults(self,):

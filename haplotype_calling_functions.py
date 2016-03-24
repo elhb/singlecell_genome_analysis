@@ -44,7 +44,7 @@ class SampleHaplotypeCaller():
         # Keep these?
         #
         #if wgsOrExome == 'exome': output += '-L '+self.AnalysisPipe.referencePath+'/truseq_exome_targeted_regions.hg19.bed.chr.columnReOrdered.withHeader.chrRem.bed '
-        #elif wgsOrExome == 'wgs': output += '-L '+self.AnalysisPipe.referencePath+'/wgs.bed '
+        output += '-L '+self.analysispipe.settings.targets+'/wgs.bed '
         
         output += '--dbsnp '+self.analysispipe.settings.GATKbundleLocation+'/dbsnp_138.b37.vcf '
         output += '--annotation AlleleBalance --annotation AlleleBalanceBySample --annotation BaseCounts --annotation BaseQualityRankSumTest '

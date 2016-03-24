@@ -132,6 +132,12 @@ class AnalysisPipe(object):
         samplerealTC_object = SampleRealignTargetCreator(self)
         for sample in alloursamples_list:
             samplerealTC_object.realign_target_creator(sample)
+            
+        from reAlign_functions import SampleReAlignAndReCalibrator
+        alloursamples_list = self.database.getSamples()
+        samplerealign_object = SampleReAlignAndReCalibrator(self)
+        for sample in alloursamples_list:
+            samplerealign_object.realign_and_recalibrate(sample)
 
 
 

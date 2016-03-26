@@ -304,8 +304,8 @@ class Settings(object,):
             'wga_trimmer':'pathway/trimScripts/',
             'TrimBWA':'pathway/trimScripts/',
             'removeEmptyReads':'pathway/trimScripts/',
-            'GATKlocation':'pathway/GATK/',
-            'GATKbundleLocation':'pathway/GATKbundle/',
+            'GATKlocation':'/sw/apps/bioinfo/GATK/3.1.1/GenomeAnalysisTK.jar',
+            'GATKbundleLocation':'/sw/data/uppnex/GATK/2.8/b37/',
             'targets':'pathway/wgstargets/',
             'program_path':'pathway/scga/'
         

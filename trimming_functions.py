@@ -28,8 +28,8 @@ class SampleTrimmer():
         # Rubicon trimming
         #
         if not self.analysispipe.settings.skiprubicon:
-            output += ''+self.analysispipe.settings.wga_trimmer+'/wgaAdapterTrimmer.py -i '+r1_in+' > '+sample.tempPath+'/'+str(filePairId)+'.r1.wgaTrimmed.fq 2> '+sample.logPath+'/rubiconWgaTrimming.'+str(filePairId)+'.r1.log.txt &\n'
-            output += ''+self.analysispipe.settings.wga_trimmer+'/wgaAdapterTrimmer.py -i '+r2_in+' > '+sample.tempPath+'/'+str(filePairId)+'.r2.wgaTrimmed.fq 2> '+sample.logPath+'/rubiconWgaTrimming.'+str(filePairId)+'.r2.log.txt &\n'
+            output += ''+self.analysispipe.settings.trim_scripts+'/wgaAdapterTrimmer.py -i '+r1_in+' > '+sample.tempPath+'/'+str(filePairId)+'.r1.wgaTrimmed.fq 2> '+sample.logPath+'/rubiconWgaTrimming.'+str(filePairId)+'.r1.log.txt &\n'
+            output += ''+self.analysispipe.settings.trim_scripts+'/wgaAdapterTrimmer.py -i '+r2_in+' > '+sample.tempPath+'/'+str(filePairId)+'.r2.wgaTrimmed.fq 2> '+sample.logPath+'/rubiconWgaTrimming.'+str(filePairId)+'.r2.log.txt &\n'
             output += 'wait\n'
             
         r1_in = sample.tempPath+'/'+str(filePairId)+'.r1.wgaTrimmed.fq'
@@ -77,8 +77,8 @@ class SampleTrimmer():
         #
         # Quality trimmming
         #
-        output += ''+self.analysispipe.settings.TrimBWA+'/TrimBWAstyle.pl -q 20 '+sample.tempPath+'/'+str(filePairId)+'.r1.wgaAndilluminaTrimmed.fq > '+sample.tempPath+'/'+str(filePairId)+'.r1.wgaIlluminaAndQualityTrimmed.fq 2> '+sample.logPath+'/qualityTrimming.'+str(filePairId)+'.r1.log.txt &\n'
-        output += ''+self.analysispipe.settings.TrimBWA+'/TrimBWAstyle.pl -q 20 '+sample.tempPath+'/'+str(filePairId)+'.r2.wgaAndilluminaTrimmed.fq > '+sample.tempPath+'/'+str(filePairId)+'.r2.wgaIlluminaAndQualityTrimmed.fq 2> '+sample.logPath+'/qualityTrimming.'+str(filePairId)+'.r2.log.txt &\n'
+        output += ''+self.analysispipe.settings.trim_scripts+'/TrimBWAstyle.pl -q 20 '+sample.tempPath+'/'+str(filePairId)+'.r1.wgaAndilluminaTrimmed.fq > '+sample.tempPath+'/'+str(filePairId)+'.r1.wgaIlluminaAndQualityTrimmed.fq 2> '+sample.logPath+'/qualityTrimming.'+str(filePairId)+'.r1.log.txt &\n'
+        output += ''+self.analysispipe.settings.trim_scripts+'/TrimBWAstyle.pl -q 20 '+sample.tempPath+'/'+str(filePairId)+'.r2.wgaAndilluminaTrimmed.fq > '+sample.tempPath+'/'+str(filePairId)+'.r2.wgaIlluminaAndQualityTrimmed.fq 2> '+sample.logPath+'/qualityTrimming.'+str(filePairId)+'.r2.log.txt &\n'
         output += 'wait\n'
         #
         # Remove temporary files
@@ -88,7 +88,7 @@ class SampleTrimmer():
         #
         # Remove empty or "N" only sequences
         #
-        output += 'python '+self.analysispipe.settings.removeEmptyReads+'/removeEmptyReads.py '
+        output += 'python '+self.analysispipe.settings.trim_scripts+'/removeEmptyReads.py '
         output += sample.tempPath+'/'+str(filePairId)+'.r1.wgaIlluminaAndQualityTrimmed.fq '
         output += sample.tempPath+'/'+str(filePairId)+'.r2.wgaIlluminaAndQualityTrimmed.fq '
         output += sample.dataPath+'/'+str(filePairId)+'.r1.allTrimmed.fq '

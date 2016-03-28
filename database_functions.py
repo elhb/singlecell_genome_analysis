@@ -300,14 +300,12 @@ class Settings(object,):
             'skipmalbac':0,
             'skipampli1':0,
             'bowtie2Reference':'/sw/data/uppnex/reference/Homo_sapiens/GRCh37/program_files/bowtie2/concat',
-            'picardLocation':'/sw/apps/bioinfo/picard/1.114/milou/',
-            'wga_trimmer':'pathway/trimScripts/',
-            'TrimBWA':'pathway/trimScripts/',
-            'removeEmptyReads':'pathway/trimScripts/',
+            'picardLocation':'/sw/apps/bioinfo/picard/1.114/milou',
+            'trim_scripts':'~/single_cell_genome_analysis/trim_scripts',
             'GATKlocation':'/sw/apps/bioinfo/GATK/3.1.1/GenomeAnalysisTK.jar',
-            'GATKbundleLocation':'/sw/data/uppnex/GATK/2.8/b37/',
-            'targets':'pathway/wgstargets/',
-            'program_path':'pathway/scga/'
+            'GATKbundleLocation':'/sw/data/uppnex/GATK/2.8/b37',
+            'targets':'pathway/wgstargets',
+            'program_path':'pathway/scga'
         
         }
         self.explenations = {
@@ -327,9 +325,7 @@ class Settings(object,):
             'skipampli1':'flag for skipping ampliOne wga adapter trimming (default 0/False)',
             'bowtie2Reference': 'pathway to bowtie2 reference',
             'picardLocation': 'pathway to picard',
-            'wga_trimmer':'pathway to folder containing trim scripts',
-            'TrimBWA':'pathway to folder containing trim scripts',
-            'removeEmptyReads':'pathway to folder containing trim scripts',
+            'trim_scripts':'pathway to folder containing trim scripts. hardcoded variable, scripts can be downloaded from the scga repo on github',
             'GATKlocation':'pathway to GATK',
             'GATKbundleLocation':'pathway to GATK bundle',
             'targets':'pathway to wgs targets',
@@ -357,9 +353,7 @@ class Settings(object,):
         self.skipampli1 = None
         self.bowtie2Reference = None
         self.picardLocation = None
-        self.wga_trimmer = None
-        self.TrimBWA = None
-        self.removeEmptyReads = None
+        self.trim_scripts = None
         self.GATKlocation = None
         self.GATKbundleLocation = None
         self.targets = None

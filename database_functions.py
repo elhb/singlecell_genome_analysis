@@ -286,9 +286,9 @@ class Settings(object,):
     
         self.defaultValues = {
             'debug':False,
-            'uppmaxProject':'b2014005',
+            'uppmaxProject':'b2014159',
             'parallelProcesses':16,
-            'mode':'exome',
+            'mode':'wgs',
             'sampleIdentificationDPcutoff':1,
             'sampleIdentificationGQcutoff':1,
             'referenceSampleDPcutoff':20,
@@ -296,16 +296,16 @@ class Settings(object,):
             'sampleADOestDPcutoff':20,
             'sampleADOestGQcutoff':30,
             'RDoverchromYscaleMax':0,
-            'skiprubicon':0,
-            'skipmalbac':0,
-            'skipampli1':0,
+            'skiprubicon':False,
+            'skipmalbac':False,
+            'skipampli1':False,
             'bowtie2Reference':'/sw/data/uppnex/reference/Homo_sapiens/GRCh37/program_files/bowtie2/concat.*',
             'picardLocation':'/sw/apps/bioinfo/picard/1.114/milou',
             'trim_scripts':'~/single_cell_genome_analysis/trim_scripts',
             'GATKlocation':'/sw/apps/bioinfo/GATK/3.1.1/GenomeAnalysisTK.jar',
             'GATKbundleLocation':'/sw/data/uppnex/GATK/2.8/b37',
             'targets':'pathway/wgstargets',
-            'program_path':'pathway/scga'
+            'program_path':'~/single_cell_genome_analysis/from_git/singlecell_genome_analysis'
         
         }
         self.explenations = {

@@ -299,7 +299,7 @@ class Settings(object,):
             'skiprubicon':0,
             'skipmalbac':0,
             'skipampli1':0,
-            'bowtie2Reference':'/sw/data/uppnex/reference/Homo_sapiens/GRCh37/program_files/bowtie2/concat',
+            'bowtie2Reference':'/sw/data/uppnex/reference/Homo_sapiens/GRCh37/program_files/bowtie2/concat.*',
             'picardLocation':'/sw/apps/bioinfo/picard/1.114/milou',
             'trim_scripts':'~/single_cell_genome_analysis/trim_scripts',
             'GATKlocation':'/sw/apps/bioinfo/GATK/3.1.1/GenomeAnalysisTK.jar',

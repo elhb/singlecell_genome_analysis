@@ -63,9 +63,9 @@ class SampleQC():
         output += 'java -Xmx3g -jar '+self.analysispipe.settings.picardLocation+'/CalculateHsMetrics.jar '
         
         #if wgsOrExome == 'exome':output += 'BAIT_INTERVALS='  +self.analysispipe.settings.targets+'/truseq_exome_targeted_regions.hg19.bed.chr.columnReOrdered.withHeader.chrRem '
-        output += 'BAIT_INTERVALS='  +self.analysispipe.settings.targets+'/wgs '
+        #output += 'BAIT_INTERVALS='  +self.analysispipe.settings.targets+'/wgs '
         #if wgsOrExome == 'exome':output += 'TARGET_INTERVALS='+self.analysispipe.settings.targets+'/truseq_exome_targeted_regions.hg19.bed.chr.columnReOrdered.withHeader.chrRem '
-        output += 'TARGET_INTERVALS='+self.analysispipe.settings.targets+'/wgs '
+        #output += 'TARGET_INTERVALS='+self.analysispipe.settings.targets+'/wgs '
         
         output += 'INPUT='+sample.dataPath+'/'+sample.name+'.noDuplicates.bam '
         output += 'OUTPUT='+sample.dataPath+'/'+sample.name+'.hs_metrics.summary.txt '

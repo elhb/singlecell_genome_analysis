@@ -32,8 +32,8 @@ class SampleTrimmer():
             output += ''+self.analysispipe.settings.trim_scripts+'/wgaAdapterTrimmer.py -i '+r2_in+' > '+sample.tempPath+'/'+str(filePairId)+'.r2.wgaTrimmed.fq 2> '+sample.logPath+'/rubiconWgaTrimming.'+str(filePairId)+'.r2.log.txt &\n'
             output += 'wait\n'
             
-        r1_in = sample.tempPath+'/'+str(filePairId)+'.r1.wgaTrimmed.fq'
-        r2_in = sample.tempPath+'/'+str(filePairId)+'.r2.wgaTrimmed.fq'
+            r1_in = sample.tempPath+'/'+str(filePairId)+'.r1.wgaTrimmed.fq'
+            r2_in = sample.tempPath+'/'+str(filePairId)+'.r2.wgaTrimmed.fq'
         #
         # Malbac trimming 
         #
@@ -43,8 +43,8 @@ class SampleTrimmer():
             output += 'cutadapt -n 10 -g GTGAGTGATGGTTGAGGTAGTGTGGAG -a CTCCACACTACCTCAACCATCACTCAC '+r2_in+' > '+sample.tempPath+'/'+str(filePairId)+'.r2.wgaTrimmed2.fq  2> '+sample.logPath+'/malbacWgaTrimming.'+str(filePairId)+'.r2.log.txt &\n'
             output += 'wait\n'
             output += '\n'
-        r1_in = sample.tempPath+'/'+str(filePairId)+'.r1.wgaTrimmed2.fq'
-        r2_in = sample.tempPath+'/'+str(filePairId)+'.r2.wgaTrimmed2.fq'
+            r1_in = sample.tempPath+'/'+str(filePairId)+'.r1.wgaTrimmed2.fq'
+            r2_in = sample.tempPath+'/'+str(filePairId)+'.r2.wgaTrimmed2.fq'
         
         if not self.analysispipe.settings.skiprubicon:output += 'rm -v '+sample.tempPath+'/'+str(filePairId)+'.r1.wgaTrimmed.fq '+sample.tempPath+'/'+str(filePairId)+'.r2.wgaTrimmed.fq\n'
         #

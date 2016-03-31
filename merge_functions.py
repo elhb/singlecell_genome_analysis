@@ -4,8 +4,8 @@ class SampleMerger():
         self.analysispipe = analysispipe # link/connection to the analysispipe object
         
     def merge_mapped_reads(self, sample):
-        for filePairId,readCount,fastq1,fastq2,sampleId in sample.getFastqs():
-            output_file = open(sample.scriptPath+'/merge.'+sample.name+'.'+str(filePairId)+'.sbatch.sh', 'w')
+        #for filePairId,readCount,fastq1,fastq2,sampleId in sample.getFastqs():
+        output_file = open(sample.scriptPath+'/merge.'+sample.name+'.sbatch.sh', 'w')
         #
         # Sbatch header
         #

@@ -5,7 +5,7 @@ class SampleTrimmer():
         
     def trimming(self, sample):
         for filePairId,readCount,fastq1,fastq2,sampleId in sample.getFastqs():
-            output_file = open(sample.scriptPath+'/trimming.'+str(filePairId)+'.sbatch.sh', 'w')
+            output_file = open(sample.scriptPath+'/trimming.'+sample.name+'.'+str(filePairId)+'.sbatch.sh', 'w')
             output = '#! /bin/bash -l'+'\n'
         output += '#SBATCH -A '+self.analysispipe.settings.uppmaxProject+'\n'
         output += '#SBATCH -n 2 -p node'+'\n'

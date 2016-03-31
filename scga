@@ -282,7 +282,7 @@ class AnalysisPipe(object):
             dependency = []
             for filePairId,readCount,fastq1,fastq2,sampleId in sample.getFastqs():
         
-                fileName = sample.scriptPath+'/trimming.'+sample.name+'.'+str(filePairId)+'.sh'
+                fileName = sample.scriptPath+'/trimming.'+sample.name+'.'+str(filePairId)+'.sbatch.sh'
                 jobid = submitSbatch(fileName)
                 AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted trimming of fastq '+str(filePairId)+' for '+sample.name+' with job id '+str(jobid)+' \n')
                 

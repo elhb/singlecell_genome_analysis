@@ -6,7 +6,7 @@ class SampleReAlignAndReCalibrator():
         
     def realign_and_recalibrate(self, sample):
         for filePairId,readCount,fastq1,fastq2,sampleId in sample.getFastqs():
-            output_file = open(sample.scriptPath+'/reAlign.'+str(filePairId)+'.sbatch.sh', 'w')
+            output_file = open(sample.scriptPath+'/reAlign.'+sample.name+'.'+str(filePairId)+'.sbatch.sh', 'w')
             
         #
         # sbatch header

@@ -5,7 +5,7 @@ class SampleMapper():
 
     def Bowtie2_mapping(self, sample):
         for filePairId,readCount,fastq1,fastq2,sampleId in sample.getFastqs():
-            output_file = open(sample.scriptPath+'/mapping.'+str(filePairId)+'.sbatch.sh', 'w')
+            output_file = open(sample.scriptPath+'/mapping.'+sample.name+'.'+str(filePairId)+'.sbatch.sh', 'w')
             output = '#! /bin/bash -l'+'\n'
         output += '#SBATCH -A '+self.analysispipe.settings.uppmaxProject+'\n'
         output += '#SBATCH -n 16 -p node'+'\n'

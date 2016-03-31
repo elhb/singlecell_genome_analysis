@@ -286,33 +286,33 @@ class AnalysisPipe(object):
                 jobid = submitSbatch(fileName)
                 AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted trimming of fastq '+str(filePairId)+' for '+sample.name+' with job id '+str(jobid)+' \n')
                 
-                fileName = sample.scriptPath+'/mapping.'+sample.name+'.'+str(filePairId)+'.sh'
+                fileName = sample.scriptPath+'/mapping.'+sample.name+'.'+str(filePairId)+'.sbatch.sh'
                 jobid = submitSbatch(fileName,dependency=[jobid])
                 dependency.append(jobid)
                 AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted mapping of fastq '+str(filePairId)+' for '+sample.name+' with job id '+str(jobid)+' \n')
         
-            fileName = sample.scriptPath+'/merge.'+sample.name+'.sh'
+            fileName = sample.scriptPath+'/merge.'+sample.name+'.sbatch.sh'
             jobid = submitSbatch(fileName,dependency=dependency)
             AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted mering of mapped data for '+sample.name+' with job id '+str(jobid)+' \n')
             
-            fileName = sample.scriptPath+'/fnf.'+sample.name+'.sh'
+            fileName = sample.scriptPath+'/fnf.'+sample.name+'.sbatch.sh'
             jobid = submitSbatch(fileName,dependency=[jobid])
             AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted fixing the of merged data for '+sample.name+' with job id '+str(jobid)+' \n')
             
-            fileName = sample.scriptPath+'/realTC.'+sample.name+'.sh'
+            fileName = sample.scriptPath+'/realTC.'+sample.name+'.sbatch.sh'
             jobid = submitSbatch(fileName,dependency=[jobid])
             AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted realignerTargetCreator of data for '+sample.name+' with job id '+str(jobid)+' \n')
             
-            fileName = sample.scriptPath+'/reAlign.'+sample.name+'.sh'
+            fileName = sample.scriptPath+'/reAlign.'+sample.name+'.sbatch.sh'
             jobid = submitSbatch(fileName,dependency=[jobid])
             AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted reAlignAndReCalibrate of data for '+sample.name+' with job id '+str(jobid)+' \n')
             
-            fileName = sample.scriptPath+'/haplotypeCalling.'+sample.name+'.sh'
+            fileName = sample.scriptPath+'/haplotypeCalling.'+sample.name+'.sbatch.sh'
             hapJobid = submitSbatch(fileName,dependency=[jobid])
             allSampleDependency.append(hapJobid)
             AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted haplotypecalling for '+sample.name+' with job id '+str(jobid)+' \n')
             
-            fileName = sample.scriptPath+'/qcSteps.'+sample.name+'.sh'
+            fileName = sample.scriptPath+'/qcSteps.'+sample.name+'.sbatch.sh'
             jobid = submitSbatch(fileName,dependency=[jobid])
             AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted qc steps for '+sample.name+' with job id '+str(jobid)+' \n')
         

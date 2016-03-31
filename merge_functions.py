@@ -14,8 +14,8 @@ class SampleMerger():
         output += '#SBATCH -n 16 -p node'+'\n'
         output += '#SBATCH -t 240:00:00'+'\n'
         output += '#SBATCH -J merge.'+sample.name+'.'+str('test')+'\n'
-        output += '#SBATCH -e '+sample.logPath+'/stderr.merge.'+sample.name+'.'+str(filePairId)+'.txt'+'\n'
-        output += '#SBATCH -o '+sample.logPath+'/stdout.merge.'+sample.name+'.'+str(filePairId)+'.txt'+'\n'
+        output += '#SBATCH -e '+sample.logPath+'/stderr.merge.'+sample.name+'.txt'+'\n'
+        output += '#SBATCH -o '+sample.logPath+'/stdout.merge.'+sample.name+'.txt'+'\n'
         #
         # define variebles and go to path
         #

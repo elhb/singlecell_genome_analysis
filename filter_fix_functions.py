@@ -6,7 +6,7 @@ class SampleFilterAndFix():
         
     def filter_and_fix(self, sample):
         #for filePairId,readCount,fastq1,fastq2,sampleId in sample.getFastqs():
-        output_file = open(sample.scriptPath+'/fnf.'+sample.name+'.'+str(filePairId)+'.sbatch.sh', 'w')
+        output_file = open(sample.scriptPath+'/fnf.'+sample.name+'.sbatch.sh', 'w')
             
         #
         # sbatch header

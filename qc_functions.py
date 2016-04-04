@@ -9,7 +9,7 @@ class SampleQC():
         import sys
         
         #for filePairId,readCount,fastq1,fastq2,sampleId in sample.getFastqs():
-        output_file = open(sample.scriptPath+'/qcSteps.'+sample.name+'.'+str(filePairId)+'.sbatch.sh', 'w')
+        output_file = open(sample.scriptPath+'/qcSteps.'+sample.name+'.sbatch.sh', 'w')
             
         #
         # sbatch header

@@ -6,7 +6,8 @@ class SampleRealignTargetCreator():
         
     def realign_target_creator(self, sample):
         #for filePairId,readCount,fastq1,fastq2,sampleId in sample.getFastqs():
-        output_file = open(sample.scriptPath+'/realTC.'+sample.name+'.'+str(filePairId)+'.sbatch.sh', 'w')
+        #output_file = open(sample.scriptPath+'/realTC.'+sample.name+'.'+str(filePairId)+'.sbatch.sh', 'w')
+        output_file = open(sample.scriptPath+'/realTC.'+sample.name+'.sbatch.sh', 'w')
             
         #
         # sbatch header

@@ -6,7 +6,7 @@ class SampleHaplotypeCaller():
         
     def haplotype_calling(self, sample):
         #for filePairId,readCount,fastq1,fastq2,sampleId in sample.getFastqs():
-        output_file = open(sample.scriptPath+'/haplotypeCalling.'+sample.name+'.'+str(filePairId)+'.sbatch.sh', 'w')
+        output_file = open(sample.scriptPath+'/haplotypeCalling.'+sample.name+'.sbatch.sh', 'w')
             
         #
         # sbatch header

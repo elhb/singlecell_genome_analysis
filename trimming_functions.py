@@ -20,8 +20,9 @@ class SampleTrimmer():
         output += 'echo "$(date) Running on: $(hostname)"'+'\n'
         output += 'cd '+sample.path+'\n'
         output += 'echo'+'\n'
-        output += 'module load bioinfo-tools pysam/0.8.3-py27 FastQC cutadapt/1.8.0 bowtie2 samtools picard/1.114 BEDTools/2.16.2  GATK/3.1.1'+'\n'
-        output += 'module load python/2.7'+'\n'
+        output += 'module load bioinfo-tools pysam/0.8.3-py27 FastQC cutadapt/1.8.0'
+        #output += 'module load bioinfo-tools pysam/0.8.3-py27 FastQC cutadapt/1.8.0 bowtie2 samtools picard/1.114 BEDTools/2.16.2  GATK/3.1.1'+'\n'
+        #output += 'module load python/2.7'+'\n'
         r1_in = fastq1
         r2_in = fastq2
         #

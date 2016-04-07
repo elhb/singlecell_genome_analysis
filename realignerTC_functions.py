@@ -36,7 +36,7 @@ class SampleRealignTargetCreator():
         output += 'java -Xmx72g -jar '+self.analysispipe.settings.GATKlocation+' -T RealignerTargetCreator '
         output += '-nt 16 '
         output += '-I '+sample.dataPath+'/'+sample.name+'.fixed.bam'+' '
-        output += '-R '+self.analysispipe.settings.bowtie2Reference+' '
+        output += '-R '+self.analysispipe.settings.GATK_reference+' '
         output += '-o '+sample.dataPath+'/'+sample.name+'.reAlignemntTargetIntervals.bed '
         output += ' -known '+self.analysispipe.settings.GATKbundleLocation+'/Mills_and_1000G_gold_standard.indels.b37.vcf'
         output += ' -known '+self.analysispipe.settings.GATKbundleLocation+'/1000G_phase1.indels.b37.vcf '

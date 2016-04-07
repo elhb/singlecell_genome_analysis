@@ -305,7 +305,8 @@ class Settings(object,):
             'GATKlocation':'/sw/apps/bioinfo/GATK/3.1.1/GenomeAnalysisTK.jar',
             'GATKbundleLocation':'/sw/data/uppnex/GATK/2.8/b37',
             'targets':'pathway/wgstargets',
-            'program_path':'~/single_cell_genome_analysis/from_git/singlecell_genome_analysis'
+            'program_path':'~/single_cell_genome_analysis/from_git/singlecell_genome_analysis',
+            'GATK_reference': '/sw/data/uppnex/reference/Homo_sapiens/GRCh37/program_files/GATK/concat.fasta'
         
         }
         self.explenations = {
@@ -329,7 +330,8 @@ class Settings(object,):
             'GATKlocation':'pathway to GATK',
             'GATKbundleLocation':'pathway to GATK bundle',
             'targets':'pathway to wgs targets',
-            'program_path':'pathway to scga on uppmax'
+            'program_path':'pathway to scga on uppmax',
+            'GATK_reference': 'pathway to GATK reference'
             
     
             }
@@ -358,6 +360,7 @@ class Settings(object,):
         self.GATKbundleLocation = None
         self.targets = None
         self.program_path = None
+        self.GATK_reference = None
         self.setDefaults()
     
     def setDefaults(self,):

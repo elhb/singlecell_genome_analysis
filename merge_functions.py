@@ -11,8 +11,8 @@ class SampleMerger():
         #
         output = '#! /bin/bash -l'+'\n'
         output += '#SBATCH -A '+self.analysispipe.settings.uppmaxProject+'\n'
-        output += '#SBATCH -n 16 -p node'+'\n'
-        output += '#SBATCH -t 240:00:00'+'\n'
+        output += '#SBATCH -n 1 -p core'+'\n'
+        output += '#SBATCH -t 10:00'+'\n'
         output += '#SBATCH -J merge.'+sample.name+'.'+str('test')+'\n'
         output += '#SBATCH -e '+sample.logPath+'/stderr.merge.'+sample.name+'.txt'+'\n'
         output += '#SBATCH -o '+sample.logPath+'/stdout.merge.'+sample.name+'.txt'+'\n'

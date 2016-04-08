@@ -14,7 +14,7 @@ class SampleRealignTargetCreator():
         #
         output = '#! /bin/bash -l'+'\n'
         output += '#SBATCH -A '+self.analysispipe.settings.uppmaxProject+'\n'
-        output += '#SBATCH -n 1 -p core'+'\n'
+        output += '#SBATCH -n 16 -p node'+'\n'
         output += '#SBATCH -t 240:00:00'+'\n'
         output += '#SBATCH -J realTC.'+sample.name+'\n'
         output += '#SBATCH -e '+sample.logPath+'/stderr.realTC.'+sample.name+'.txt'+'\n'

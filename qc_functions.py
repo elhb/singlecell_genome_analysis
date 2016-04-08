@@ -40,7 +40,7 @@ class SampleQC():
         output +='-I '+sample.dataPath+'/'+sample.name+'.noDuplicates.bam '
         output +='-summary '+sample.dataPath+'/'+sample.name+'.callableLociSummary.txt '
         output +='-o '+sample.dataPath+'/'+sample.name+'.callableLoci.bed '
-        output +='-R '+self.analysispipe.settings.bowtie2Reference+' '+'\n'
+        output +='-R '+self.analysispipe.settings.GATK_reference+' '+'\n'
         output += 'echo "Done. $(date) Running on: $(hostname)"'+'\n'
         output += 'echo'+'\n'
         output += 'echo "-----"'+'\n'

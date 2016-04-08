@@ -33,10 +33,10 @@ class SampleReAlignAndReCalibrator():
         #
         # Realign reads around indels
         #
-        output += 'echo -e "-> IndelRealigner <-"\n'
+        output += 'echo -e "-> Running IndelRealigner <-"\n'
         output += 'java -Xmx5g -jar '+self.analysispipe.settings.GATKlocation+' -T IndelRealigner '
         output += '-I '+sample.dataPath+'/'+sample.name+'.fixed.bam'+' '
-        output += '-R '+self.analysispipe.settings.bowtie2Reference+' '
+        output += '-R '+self.analysispipe.settings.GATK_reference+' '
         output += '-targetIntervals '+sample.dataPath+'/'+sample.name+'.reAlignemntTargetIntervals.bed '
         output += ' -o '+sample.tempPath+'/'+sample.name+'.reAligned.bam'+' '
         output += ' -known '+self.analysispipe.settings.GATKbundleLocation+'/Mills_and_1000G_gold_standard.indels.b37.vcf'
@@ -50,19 +50,19 @@ class SampleReAlignAndReCalibrator():
         #
         # Quality recalibration
         #
-        output += 'echo -e "-> BaseRecalibrator <-"\n'
+        output += 'echo -e "-> Running BaseRecalibrator <-"\n'
         output += 'java -Xmx5g -jar '+self.analysispipe.settings.GATKlocation+' -T BaseRecalibrator '
         output += '-I '+sample.tempPath+'/'+sample.name+'.reAligned.bam'+' '
-        output += '-R '+self.analysispipe.settings.bowtie2Reference+' '
+        output += '-R '+self.analysispipe.settings.GATK_reference+' '
         output += '-o '+sample.dataPath+'/'+sample.name+'.BQSR.grp'+' '
         output += ' -knownSites '+self.analysispipe.settings.GATKbundleLocation+'/dbsnp_138.b37.vcf '
         output += '1>&2 2> '+sample.logPath+'/stderr.baseRecalibrator.'+sample.name+'.txt;'+'\n'
 
         output += '\n'
-        output += 'echo -e "-> PrintReads <-"\n'
+        output += 'echo -e "-> Running PrintReads <-"\n'
         output += 'java -Xmx5g -jar '+self.analysispipe.settings.GATKlocation+' -T PrintReads '
         output += '-I '+sample.tempPath+'/'+sample.name+'.reAligned.bam'+' '
-        output += '-R '+self.analysispipe.settings.bowtie2Reference+' '
+        output += '-R '+self.analysispipe.settings.GATK_reference+' '
         output += '-BQSR '+sample.dataPath+'/'+sample.name+'.BQSR.grp'+' '
         output += '-o '+sample.tempPath+'/'+sample.name+'.reCalibrated.bam'+' '
         output += '1>&2 2> '+sample.logPath+'/stderr.printreads.txt ;\n'

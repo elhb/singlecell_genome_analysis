@@ -17,7 +17,7 @@ class SampleQC():
         output = '#! /bin/bash -l'+'\n'
         output += '#SBATCH -A '+self.analysispipe.settings.uppmaxProject+'\n'
         output += '#SBATCH -n 1 -p core'+'\n'
-        output += '#SBATCH -t 20:00'+'\n'
+        output += '#SBATCH -t 60:00'+'\n'
         output += '#SBATCH -J qcSteps.'+sample.name+'\n'
         output += '#SBATCH -e '+sample.logPath+'/stderr.qcSteps.'+sample.name+'.txt'+'\n'
         output += '#SBATCH -o '+sample.logPath+'/stdout.qcSteps.'+sample.name+'.txt'+'\n'

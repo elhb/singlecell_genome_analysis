@@ -17,7 +17,7 @@ class SampleQC():
         output = '#! /bin/bash -l'+'\n'
         output += '#SBATCH -A '+self.analysispipe.settings.uppmaxProject+'\n'
         output += '#SBATCH -n 1 -p core'+'\n'
-        output += '#SBATCH -t 240:00:00'+'\n'
+        output += '#SBATCH -t 20:00'+'\n'
         output += '#SBATCH -J qcSteps.'+sample.name+'\n'
         output += '#SBATCH -e '+sample.logPath+'/stderr.qcSteps.'+sample.name+'.txt'+'\n'
         output += '#SBATCH -o '+sample.logPath+'/stdout.qcSteps.'+sample.name+'.txt'+'\n'
@@ -70,7 +70,7 @@ class SampleQC():
         output += 'INPUT='+sample.dataPath+'/'+sample.name+'.noDuplicates.bam '
         output += 'OUTPUT='+sample.dataPath+'/'+sample.name+'.hs_metrics.summary.txt '
         output += 'PER_TARGET_COVERAGE='+sample.dataPath+'/'+sample.name+'.hs_metrics.perTargetCoverage.txt '
-        output += 'REFERENCE_SEQUENCE='+self.analysispipe.settings.bowtie2Reference+'  '
+        output += 'REFERENCE_SEQUENCE='+self.analysispipe.settings.GATK_reference+'  '
         output += '1>&2 2> '+sample.logPath+'/'+sample.name+'.stderr.caluclateHsmetrics.txt \n'
         
         #

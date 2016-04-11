@@ -34,7 +34,7 @@ class SampleHaplotypeCaller():
         output += 'cp -v '+sample.dataPath+'/'+sample.name+'.noDuplicates.bai $SNIC_TMP\n'
         output += 'java -Xmx50g -jar '+self.analysispipe.settings.GATKlocation+' '
         output += '-T HaplotypeCaller -nct 16 '
-        output += '-R '+self.analysispipe.settings.GATK_reference' '
+        output += '-R '+self.analysispipe.settings.GATK_reference+' '
         output += '-I $SNIC_TMP'+'/'+sample.name+'.noDuplicates.bam '
         output += '--genotyping_mode DISCOVERY '
         output += '-stand_emit_conf 10 '

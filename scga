@@ -88,6 +88,7 @@ class AnalysisPipe(object):
         AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Action is '+sys.argv[2]+'\n')
         if self.action == 'addSample':self.addSample()
         elif self.action == 'addFastq':self.addFastq()
+        elif self.action == 'reportServer':self.reportServer()
         elif self.action == 'changeSetting':self.changeSetting()
         elif self.action == 'createScripts':self.createScripts()
         elif self.action == 'submitScripts':self.submitScripts()
@@ -317,6 +318,74 @@ class AnalysisPipe(object):
             AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted qc steps for '+sample.name+' with job id '+str(jobid)+' \n')
         
         
+    def reportServer(self, ):
+                
+        #
+        # Imports
+        #
+        from flask import Flask
+        from flask import render_template
+        from flask import json
+        import sys
+        import time
+        import os
+        
+        #
+        # initiate the flask application
+        #
+        app = Flask(__name__)
+        app.analysispipe = self
+        
+        @app.route("/")
+        def start():
+            """ initial page does nothing but redirecting the user to the index.html route """
+            
+            page =  """<!DOCTYPE HTML>
+                <html lang="en-US">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta http-equiv="refresh" content="1;url=index.html">
+                    <script type="text/javascript">
+                      window.location.href = "report.html"
+                    </script>
+                    <title>Page Redirection</title>
+                </head>
+                <body>
+                    If you are not redirected automatically, follow <a href='report.html'>this link</a>
+                </body>
+              </html>"""
+            
+            return page
+        
+        @app.route("/report.html")
+        def index():
+            """ function that builds the index page of the webinterface """
+        
+            #
+            # Imports
+            #
+            import os
+            import operator
+            import report_generation
+        
+            #app.analysispipe.logfile.write('Generating index.html ...\n')
+            page = report_generation.generate_index(app.analysispipe)
+            
+            return page
+
+        @app.route("/report_data/sample_summary.csv")
+        def sample_summary_csv():
+            csv = "name"+ '\n'#"name"+","+"thing" + '\n'
+            for sample in self.database.getSamples():
+                csv += sample.name + '\n'
+            # csv += 'kurt'+','+'gurka' + '\n'
+            # csv += 'goran'+','+'smurgas' + '\n'
+            # csv += 'svenne'+','+'fisk' + '\n'
+            return csv
+    
+        app.run(host='0.0.0.0',port=5000,debug=True)
+
+
 def submitSbatch(filename,dependency=None):
 
     import subprocess

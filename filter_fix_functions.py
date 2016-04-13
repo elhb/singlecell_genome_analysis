@@ -14,7 +14,7 @@ class SampleFilterAndFix():
         output = '#! /bin/bash -l'+'\n'
         output += '#SBATCH -A '+self.analysispipe.settings.uppmaxProject+'\n'
         output += '#SBATCH -n 1 -p core'+'\n'
-        output += '#SBATCH -t 60:00'+'\n'
+        output += '#SBATCH -t 1:00:00'+'\n'
         output += '#SBATCH -J fnf.'+sample.name+'\n'
         output += '#SBATCH -e '+sample.logPath+'/stderr.filterAndFix.'+sample.name+'.txt'+'\n'
         output += '#SBATCH -o '+sample.logPath+'/stdout.filterAndFix.'+sample.name+'.txt'+'\n'

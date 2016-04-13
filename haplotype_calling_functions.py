@@ -14,7 +14,7 @@ class SampleHaplotypeCaller():
         output = '#! /bin/bash -l'+'\n'
         output += '#SBATCH -A '+self.analysispipe.settings.uppmaxProject+'\n'
         output += '#SBATCH -n 16 -p node'+'\n'
-        output += '#SBATCH -t 2:00:00'+'\n'
+        output += '#SBATCH -t 1:00:00'+'\n'
         output += '#SBATCH -J haplotypeCalling.'+sample.name+'\n'
         output += '#SBATCH -e '+sample.logPath+'/stderr.haplotypeCalling.'+sample.name+'.txt'+'\n'
         output += '#SBATCH -o '+sample.logPath+'/stdout.haplotypeCalling.'+sample.name+'.txt'+'\n'

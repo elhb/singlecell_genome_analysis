@@ -14,7 +14,7 @@ class SampleReAlignAndReCalibrator():
         output = '#! /bin/bash -l'+'\n'
         output += '#SBATCH -A '+self.analysispipe.settings.uppmaxProject+'\n'
         output += '#SBATCH -n 1 -p core'+'\n'
-        output += '#SBATCH -t 90:00'+'\n'
+        output += '#SBATCH -t 24:00:00'+'\n'
         output += '#SBATCH -J reAlign.'+sample.name+'\n'
         output += '#SBATCH -e '+sample.logPath+'/stderr.reAlign.'+sample.name+'.txt'+'\n'
         output += '#SBATCH -o '+sample.logPath+'/stdout.reAlign.'+sample.name+'.txt'+'\n'

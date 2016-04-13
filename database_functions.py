@@ -287,7 +287,7 @@ class Settings(object,):
     
         self.defaultValues = {
             'debug':False,
-            'uppmaxProject':'b2014159',
+            'uppmaxProject':'b2011168',
             'parallelProcesses':16,
             'mode':'wgs',
             'sampleIdentificationDPcutoff':1,

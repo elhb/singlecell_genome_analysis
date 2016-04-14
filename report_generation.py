@@ -25,8 +25,7 @@ def generate_oldStyle_index(analysispipe):
     import glob
     import multiprocessing
     import pysam
-    from misc import thousandString as thousandString
-    from misc import percentage as percentage
+    from misc import thousandString, percentage, sorted_nicely
     analysispipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(analysispipe.masterPid)+'# Creating a report located at '+analysispipe.path+'/report.htm'+' \n')
   
     analysispipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(analysispipe.masterPid)+'# Getting stats for all samlpes ....'+' \n')
@@ -157,9 +156,9 @@ def generate_oldStyle_index(analysispipe):
         except KeyError:   outputStr += '<td>'+'Unknown'                      +'</td>'
         outputStr += '<td>'+fastq1+'</td>'
         try:
-          if os.path.exists(samplesbyId[int(sampleId)].fastqcPath+'/'+str(filePairId)+'.r1.allTrimmed_fastqc.html'): outputStr += '<td><a href="'+os.path.relpath(samplesbyId[int(sampleId)].fastqcPath+'/'+str(filePairId)+'.r1.allTrimmed_fastqc.html','/hejhopp')+'">here</a></td>'
+          if os.path.exists(samplesbyId[int(sampleId)].fastqcPath+'/'+str(filePairId)+'.r1.allTrimmed_fastqc.html'): outputStr += '<td><a href="'+'static/runData'+'/per_sample_info/'+samplesbyId[int(sampleId)].name+'/fastQC'+'/'+str(filePairId)+'.r1.allTrimmed_fastqc.html'+'">here</a></td>'
           else:outputStr += '<td><font color="red">NA</font></td>'
-          if os.path.exists(samplesbyId[int(sampleId)].fastqcPath+'/'+str(filePairId)+'.r2.allTrimmed_fastqc.html'): outputStr += '<td><a href="'+os.path.relpath(samplesbyId[int(sampleId)].fastqcPath+'/'+str(filePairId)+'.r2.allTrimmed_fastqc.html','/hejhopp')+'">here</a></td>'
+          if os.path.exists(samplesbyId[int(sampleId)].fastqcPath+'/'+str(filePairId)+'.r2.allTrimmed_fastqc.html'): outputStr += '<td><a href="'+'static/runData'+'/per_sample_info/'+samplesbyId[int(sampleId)].name+'/fastQC'+'/'+str(filePairId)+'.r2.allTrimmed_fastqc.html'+'">here</a></td>'
           else:outputStr += '<td><font color="red">NA</font></td>'
         except KeyError:
           outputStr += '<td><font color="red">NA</font></td>'
@@ -278,49 +277,6 @@ def generate_oldStyle_index(analysispipe):
         outputStr += '<tr>'
     outputStr += '</table>'
 
-    # outputStr += '<h2>HS-METRICS:</h2>'
-    # outputStr += '<table>'
-    # outputStr += '<tr>'
-    # outputStr += '<th>Sample Id</th>'
-    # outputStr += '<th>Sample Name</th>'
-    # outputStr += '<th>On Target</th>'
-    # outputStr += '<th>% RD=0 targets</th>'
-    # outputStr += '<th>% bases @2X</th>'
-    # outputStr += '<th>% bases @10X</th>'
-    # outputStr += '<th>% bases @20X</th>'
-    # outputStr += '<th>% bases @30X</th>'
-    # outputStr += '<th>% bases @40X</th>'
-    # outputStr += '<th>% bases @50X</th>'
-    # outputStr += '<th>% bases @100X</th>'
-    # outputStr += '<th>FOLD_ENRICHMENT</th>'
-    # outputStr += '</tr>'
-    # for sample in refSamplesFirst:
-    #     outputStr += '<tr>'
-    #     outputStr += '<td>'+str(sample.id)+'</td>'
-    #     outputStr += '<td>'+sample.name+'</td>'
-    #     try: outputStr += '<td>'+str(100*round(float(sample.stats['hs_metrics.summary']['PCT_SELECTED_BASES'].replace(',','.')),4))+'</td>'
-    #     except (KeyError, TypeError) as e: outputStr += '<td><font color="red">NA%</font></td>'
-    #     try: outputStr += '<td>'+str(100*round(float(sample.stats['hs_metrics.summary']['ZERO_CVG_TARGETS_PCT'].replace(',','.')),4))+'</td>'
-    #     except (KeyError, TypeError) as e:outputStr += '<td><font color="red">NA%</font></td>'
-    #     try: outputStr += '<td>'+str(100*round(float(sample.stats['hs_metrics.summary']['PCT_TARGET_BASES_2X'].replace(',','.')),4))+'</td>'
-    #     except (KeyError, TypeError) as e:outputStr += '<td><font color="red">NA%</font></td>'
-    #     try: outputStr += '<td>'+str(100*round(float(sample.stats['hs_metrics.summary']['PCT_TARGET_BASES_10X'].replace(',','.')),4))+'</td>'
-    #     except (KeyError, TypeError) as e:outputStr += '<td><font color="red">NA%</font></td>'
-    #     try: outputStr += '<td>'+str(100*round(float(sample.stats['hs_metrics.summary']['PCT_TARGET_BASES_20X'].replace(',','.')),4))+'</td>'
-    #     except (KeyError, TypeError) as e:outputStr += '<td><font color="red">NA%</font></td>'
-    #     try: outputStr += '<td>'+str(100*round(float(sample.stats['hs_metrics.summary']['PCT_TARGET_BASES_30X'].replace(',','.')),4))+'</td>'
-    #     except (KeyError, TypeError) as e:outputStr += '<td><font color="red">NA%</font></td>'
-    #     try: outputStr += '<td>'+str(100*round(float(sample.stats['hs_metrics.summary']['PCT_TARGET_BASES_40X'].replace(',','.')),4))+'</td>'
-    #     except (KeyError, TypeError) as e:outputStr += '<td><font color="red">NA%</font></td>'
-    #     try: outputStr += '<td>'+str(100*round(float(sample.stats['hs_metrics.summary']['PCT_TARGET_BASES_50X'].replace(',','.')),4))+'</td>'
-    #     except (KeyError, TypeError) as e:outputStr += '<td><font color="red">NA%</font></td>'
-    #     try: outputStr += '<td>'+str(100*round(float(sample.stats['hs_metrics.summary']['PCT_TARGET_BASES_100X'].replace(',','.')),4))+'</td>'
-    #     except (KeyError, TypeError) as e:outputStr += '<td><font color="red">NA%</font></td>'
-    #     try: outputStr += '<td>'+str(round(float(sample.stats['hs_metrics.summary']['FOLD_ENRICHMENT'].replace(',','.')),2))+'</td>'
-    #     except (KeyError, TypeError) as e:outputStr += '<td><font color="red">NA</font></td>'
-    #     outputStr += '<tr>'
-    # outputStr += '</table>'
-
     outputStr += '<h2>Variants:</h2>'
     outputStr += '<table>'
     outputStr += '<tr>'
@@ -375,24 +331,24 @@ def generate_oldStyle_index(analysispipe):
 
     outputStr += '<h2>InsertSize graphs:</h2>'
     if os.path.exists(analysispipe.path+'/graphics/insertSizes.png'):
-        outputStr += '<a href="'+os.path.relpath(analysispipe.path+'/graphics/insertSizes.pdf','/'.join(reportFile.name.split('/')[:-1]))+'">'
-        outputStr += '<img src="'+os.path.relpath(analysispipe.path+'/graphics/insertSizes.png',  '/'.join(reportFile.name.split('/')[:-1]))+'">'
+        outputStr += '<a href="'+'static/runData'+'/all_samples_graphics/insertSizes.pdf'+'">'
+        outputStr += '<img src="'+'static/runData'+'/all_samples_graphics/insertSizes.png'+'">'
         outputStr += '</a>'
     else: outputStr += '<font color="red">Insert size graph not created yet.</font><br>'
     outputStr += '<h2>Coverage graphs:</h2>'
     if os.path.exists(analysispipe.path+'/graphics/lorentzCurve.png'):
-        outputStr += '<a href="'+os.path.relpath(analysispipe.path+'/graphics/lorentzCurve.pdf','/'.join(reportFile.name.split('/')[:-1]))+'">'
-        outputStr += '<img src="'+os.path.relpath(analysispipe.path+'/graphics/lorentzCurve.png', '/'.join(reportFile.name.split('/')[:-1]))+'">'
+        outputStr += '<a href="'+'static/runData'+'/all_samples_graphics/lorentzCurve.pdf'+'">'
+        outputStr += '<img src="'+'static/runData'+'/all_samples_graphics/lorentzCurve.png'+'">'
         outputStr += '</a>'
     else: outputStr += '<font color="red">Lorentz curve graph not created yet.</font><br>'
     if os.path.exists(analysispipe.path+'/graphics/lorentzCurveCoveredOnly.png'):
-        outputStr += '<a href="'+os.path.relpath(analysispipe.path+'/graphics/lorentzCurveCoveredOnly.pdf','/'.join(reportFile.name.split('/')[:-1]))+'">'
-        outputStr += '<img src="'+os.path.relpath(analysispipe.path+'/graphics/lorentzCurveCoveredOnly.png', '/'.join(reportFile.name.split('/')[:-1]))+'">'
+        outputStr += '<a href="'+'static/runData'+'/all_samples_graphics/lorentzCurveCoveredOnly.pdf'+'">'
+        outputStr += '<img src="'+'static/runData'+'/all_samples_graphics/lorentzCurveCoveredOnly.png'+'">'
         outputStr += '</a>'
     else: outputStr += '<font color="red">Lorentz curve graph for CoveredOnly not created yet.</font><br>'
     if os.path.exists(analysispipe.path+'/graphics/exomecoverage.png'):
-        outputStr += '<a href="'+os.path.relpath(analysispipe.path+'/graphics/exomecoverage.pdf','/'.join(reportFile.name.split('/')[:-1]))+'">'
-        outputStr += '<img src="'+os.path.relpath(analysispipe.path+'/graphics/exomecoverage.png','/'.join(reportFile.name.split('/')[:-1]))+'">'
+        outputStr += '<a href="'+'static/runData'+'/all_samples_graphics/exomecoverage.pdf'+'">'
+        outputStr += '<img src="'+'static/runData'+'/all_samples_graphics/exomecoverage.png'+'">'
         outputStr += '</a>'
     else: outputStr += '<font color="red">Exome coverage graph not created yet.</font><br>'
     outputStr += '<br>'
@@ -405,8 +361,9 @@ def generate_oldStyle_index(analysispipe):
           outputStr += '<br><br>Coverage over chromosome '+chrom+':<br>'
           for sample in refSamplesFirst:
               if os.path.exists(sample.plotsPath+'/readDepth.'+sample.name+'.'+chrom+'.png'):
-                outputStr += '<a href="'+ os.path.relpath(sample.plotsPath+'/readDepth.'+sample.name+'.'+chrom+'.pdf','/'.join(reportFile.name.split('/')[:-1]))+'">'
-                outputStr += '<img src="'+os.path.relpath(sample.plotsPath+'/readDepth.'+sample.name+'.'+chrom+'.png', '/'.join(reportFile.name.split('/')[:-1]))+'">'
+                outputStr += '<a href="'+'static/runData'+'/per_sample_info/'+samplesbyId[int(sampleId)].name+'/plots'+'/readDepth.'+sample.name+'.'+chrom+'.pdf'+'">'
+                #os.path.relpath(sample.plotsPath+'/readDepth.'+sample.name+'.'+chrom+'.pdf','/'.join(reportFile.name.split('/')[:-1]))+'">'
+                outputStr += '<img src="'+'static/runData'+'/per_sample_info/'+samplesbyId[int(sampleId)].name+'/plots'+'/readDepth.'+sample.name+'.'+chrom+'.png'+'">'
                 outputStr += '</a><br>'
 
     #for imgFileName in glob.iglob(analysispipe.path+'/graphics/readDepth.*.png'):
@@ -422,3 +379,11 @@ def reportParallel(sample):
     sample.getStats()
     return sample
 
+def createSampleSummaryCsv(analysispipe):
+    csv = "name"+ '\n'#"name"+","+"thing" + '\n'
+    for sample in analysispipe.database.getSamples():
+        csv += sample.name + '\n'
+    # csv += 'kurt'+','+'gurka' + '\n'
+    # csv += 'goran'+','+'smurgas' + '\n'
+    # csv += 'svenne'+','+'fisk' + '\n'
+    return csv

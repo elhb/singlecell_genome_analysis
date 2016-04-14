@@ -96,11 +96,20 @@ class AnalysisPipe(object):
         if self.action == 'addSample':self.addSample()
         elif self.action == 'addFastq':self.addFastq()
         elif self.action == 'reportServer':self.reportServer()
+        elif self.action == 'generatePlots':self.makeGraphics()
         elif self.action == 'changeSetting':self.changeSetting()
         elif self.action == 'createScripts':self.createScripts()
         elif self.action == 'submitScripts':self.submitScripts()
         else:
             msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply a Valid action on your commandline (currently: "'+' '.join(sys.argv)+'"), exiting.\n'
+            msg += """Available commands: 
+                    'addSample'
+                    'addFastq'
+                    'reportServer'
+                    'generatePlots'
+                    'changeSetting'
+                    'createScripts'
+                    'submitScripts'"""
             AnalysisPipe.logfile.write(msg)
             sys.stderr.write(msg)
             sys.stderr.write('\n'+self.getReadme())
@@ -320,6 +329,8 @@ class AnalysisPipe(object):
             AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted qc steps for '+sample.name+' with job id '+str(jobid)+' \n')
             
     def reportServer(self, ):
+        
+        #self.makeGraphics()
 
         #
         # Imports
@@ -327,16 +338,44 @@ class AnalysisPipe(object):
         import sys
         import time
         import os
+        import shutil
+        import report_generation
         
         #
         # Create the report folder and files
         #
-        if not os.path.isdir(self.path+'/report'): os.mkdir(self.path+'/report')
-        # copy the static folder
-        reportFile = open(self.path+'/report/report.html','w')
-        # create the report_data folder
+        #clear temporary runspecific data in server static
+        if os.path.isdir( os.path.dirname(os.path.abspath(__file__))+'/static/runData'):
+            shutil.rmtree(os.path.dirname(os.path.abspath(__file__))+'/static/runData')
+        os.mkdir(         os.path.dirname(os.path.abspath(__file__))+'/static/runData')
         # copy samples fastqc files to data
-        # create the /report_data/sample_summary.csv file
+        destination = os.path.dirname(os.path.abspath(__file__))+'/static/runData'
+        if os.path.exists(AnalysisPipe.path+'/graphics'): shutil.copytree(AnalysisPipe.path+'/graphics', destination+'/all_samples_graphics')
+        samplesById={sample.id:sample for sample in AnalysisPipe.database.getSamples()}
+        os.mkdir(destination+'/per_sample_info')
+        doneIds = []
+        for filePairId,readCount,fastq1,fastq2,sampleId in AnalysisPipe.database.getFastqs():
+            try:
+              if sampleId not in doneIds and sampleId in samplesById:
+                  sys.stderr.write('creating '+destination+'/per_sample_info/'+samplesById[int(sampleId)].name+'\n')
+                  os.mkdir(destination+'/per_sample_info/'+samplesById[int(sampleId)].name)
+                  if os.path.exists(samplesById[int(sampleId)].fastqcPath): shutil.copytree(samplesById[int(sampleId)].fastqcPath, destination+'/per_sample_info/'+samplesById[int(sampleId)].name+'/fastQC')
+                  if os.path.exists(samplesById[int(sampleId)].plotsPath ): shutil.copytree(samplesById[int(sampleId)].plotsPath, destination+'/per_sample_info/'+samplesById[int(sampleId)].name+'/plots')
+              doneIds.append(sampleId)
+            except OSError: pass
+        # create the analysisfolder side report folder
+        if not os.path.isdir(self.path+'/report'): os.mkdir(self.path+'/report')
+        # clear any old static files for the specific run and copy new ones from code repo
+        if os.path.isdir(self.path+'/report/static'): shutil.rmtree(self.path+'/report/static')
+        shutil.copytree(os.path.dirname(os.path.abspath(__file__))+'/static', self.path+'/report/static')
+        # create the report html file
+        reportFile = open(self.path+'/report/report.html','w')
+        reportFile.write(report_generation.generate_oldStyle_index(self))
+        reportFile.close()
+        # create static sample summary table data
+        sampleSummaryCsvFile = open(self.path+'/report/static/runData/sample_summary.csv','w')
+        sampleSummaryCsvFile.write(report_generation.createSampleSummaryCsv(self))
+        sampleSummaryCsvFile.close()
         
         
         #
@@ -388,18 +427,12 @@ class AnalysisPipe(object):
                 #app.analysispipe.logfile.write('Generating index.html ...\n')
                 #page = report_generation.generate_index(app.analysispipe)
                 page = report_generation.generate_oldStyle_index(app.analysispipe)
-                reportFile.write(page)
-                
                 return page
     
-            @app.route("/report_data/sample_summary.csv")
+            @app.route("/static/runData/sample_summary.csv")
             def sample_summary_csv():
-                csv = "name"+ '\n'#"name"+","+"thing" + '\n'
-                for sample in self.database.getSamples():
-                    csv += sample.name + '\n'
-                # csv += 'kurt'+','+'gurka' + '\n'
-                # csv += 'goran'+','+'smurgas' + '\n'
-                # csv += 'svenne'+','+'fisk' + '\n'
+                import report_generation
+                csv = report_generation.createSampleSummaryCsv(self)
                 return csv
         
             app.run(host='0.0.0.0',port=5000,debug=True)
@@ -407,12 +440,265 @@ class AnalysisPipe(object):
             if a.__str__() == 'No module named flask':
                 sys.stderr.write("WARNING: module flask is missing! needs to be installed to run a functional report server!\n")
                 import report_generation
-                reportFile.write(report_generation.generate_oldStyle_index(self))
+                
             else:
                 print a.__str__()
                 print help(a)
-        reportFile.close()
 
+    def makeGraphics(self,):
+
+        import pysam
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import operator
+        import sys
+        import os
+        import time
+        import multiprocessing
+  
+        try: os.mkdir(AnalysisPipe.path+'/graphics')
+        except OSError: pass
+  
+        # make isize plot
+        self.makeISizePlot()
+        self.makeGiniAndCoverageatRDplot()
+        self.makeRdOverChromGraph()
+        
+        return 0
+
+    def makeISizePlot(self,):
+
+        import pysam
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import operator
+        import sys
+        import os
+        import time
+        import multiprocessing
+        from misc import percentage
+  
+        htmlColors = ['AliceBlue','AntiqueWhite','Aqua','Aquamarine','Azure','Beige','Bisque','Black','BlanchedAlmond','Blue','BlueViolet','Brown','BurlyWood','CadetBlue','Chartreuse','Chocolate','Coral','CornflowerBlue','Cornsilk','Crimson','Cyan','DarkBlue','DarkCyan','DarkGoldenRod','DarkGray','DarkGreen','DarkKhaki','DarkMagenta','DarkOliveGreen','DarkOrange','DarkOrchid','DarkRed','DarkSalmon','DarkSeaGreen','DarkSlateBlue','DarkSlateGray','DarkTurquoise','DarkViolet','DeepPink','DeepSkyBlue','DimGray','DodgerBlue','FireBrick','FloralWhite','ForestGreen','Fuchsia','Gainsboro','GhostWhite','Gold','GoldenRod','Gray','Green','GreenYellow','HoneyDew','HotPink','IndianRed','Indigo','Ivory','Khaki','Lavender','LavenderBlush','LawnGreen','LemonChiffon','LightBlue','LightCoral','LightCyan','LightGoldenRodYellow','LightGray','LightGreen','LightPink','LightSalmon','LightSeaGreen','LightSkyBlue','LightSlateGray','LightSteelBlue','LightYellow','Lime','LimeGreen','Linen','Magenta','Maroon','MediumAquaMarine','MediumBlue','MediumOrchid','MediumPurple','MediumSeaGreen','MediumSlateBlue','MediumSpringGreen','MediumTurquoise','MediumVioletRed','MidnightBlue','MintCream','MistyRose','Moccasin','NavajoWhite','Navy','OldLace','Olive','OliveDrab','Orange','OrangeRed','Orchid','PaleGoldenRod','PaleGreen','PaleTurquoise','PaleVioletRed','PapayaWhip','PeachPuff','Peru','Pink','Plum','PowderBlue','Purple','Red','RosyBrown','RoyalBlue','SaddleBrown','Salmon','SandyBrown','SeaGreen','SeaShell','Sienna','Silver','SkyBlue','SlateBlue','SlateGray','Snow','SpringGreen','SteelBlue','Tan','Teal','Thistle','Tomato','Turquoise','Violet','Wheat','WhiteSmoke','Yellow','YellowGreen']
+        linestyles = ['-',':','--','-.']
+        colors = ['b','b:','r','r:','g','g:','c','c:','m','m:','y','y:','k','k:']+[i+'--' for i in 'rgbcmyk']+[i+'-.' for i in 'rgbcmyk'] # ['-' | '--' | '-.' | ':' | 'None' | ' ' | '']
+        isizes = {}
+  
+        sampleCount = sum([1 for sample in AnalysisPipe.database.getSamples()])
+        poolOfProcesses = multiprocessing.Pool(min([multiprocessing.cpu_count(),sampleCount]),maxtasksperchild=1)
+        parallelResults = poolOfProcesses.imap_unordered(getIsizeData,AnalysisPipe.database.getSamples(),chunksize=1)
+        
+        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Loading and processing indata ...\n')
+        for output in parallelResults:
+            sample, sampleInsSizes = output
+            isizes[sample.name] = sampleInsSizes
+        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# All iSize data loaded and processed.\n')
+        poolOfProcesses.close()
+        poolOfProcesses.join()
+    
+        if not isizes:
+            AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Skipping insert size plot no sample has data ...\n')
+            return 0
+  
+        fig, axes = plt.subplots(1, sharex=True)
+        plots = []
+        incrementer=0
+        incrementer2=0
+        incrementer3=0
+  
+        for sample in AnalysisPipe.database.getSamples():
+            counter = {}
+            total = 0
+  
+            counter = isizes[sample.name]
+            total = sum(counter.values())
+  
+            y = [percentage(value,total) for key, value in sorted(counter.iteritems(), key=operator.itemgetter(0))]
+            x = sorted(counter.keys())
+            try: plots.append(axes.plot(x, y,colors[incrementer],label=sample.name))
+            except IndexError:
+              plots.append(axes.plot(x, y,color=htmlColors[incrementer2],linestyle=linestyles[incrementer3],label=sample.name))
+              if incrementer3 == 3:
+                  incrementer2+=1
+                  incrementer3 = 0
+              else: incrementer3+=1
+            incrementer+=1
+            axes.set_xlim([0,1000])
+  
+        handles, labels = axes.get_legend_handles_labels()
+        hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
+        handles2, labels2 = zip(*hl)
+        axes.legend(handles2, labels2,loc=0,fontsize='small')
+        axes.set_xlabel('InsertSize (final filtered data)')
+        axes.set_ylabel('Frequency')
+        plt.savefig(AnalysisPipe.path+'/graphics/insertSizes.pdf',dpi=50,bbox_inches='tight')
+        plt.savefig(AnalysisPipe.path+'/graphics/insertSizes.png',dpi=50,bbox_inches='tight')
+
+    def makeGiniAndCoverageatRDplot(self):
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import operator
+        import sys
+        import os
+        import time
+        import multiprocessing
+    
+        sampleCount = sum([1 for sample in AnalysisPipe.database.getSamples()])
+    
+        poolOfProcesses = multiprocessing.Pool(min([multiprocessing.cpu_count(),sampleCount]),maxtasksperchild=1)
+        parallelResults = poolOfProcesses.imap_unordered(getGiniData,AnalysisPipe.database.getSamples(),chunksize=1)
+    
+        referenceBaseCount ={}
+        plotData = {}
+        returnedSampleNames = []
+        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Loading and processing indata ...\n')
+        for output in parallelResults:
+            if not output: continue
+            sample, gini_x, gini_y,gini_x_cov, gini_y_cov, cAtRd_x, cAtRd_y, referenceBaseCount[sample.name] = output
+            returnedSampleNames.append(sample.name)
+            plotData[sample.name] = {'gini_x':gini_x, 'gini_y':gini_y,'gini_x_cov':gini_x_cov, 'gini_y_cov':gini_y_cov, 'cAtRd_x':cAtRd_x, 'cAtRd_y':cAtRd_y}
+        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# All coverage data loaded and processed.\n')
+        
+        samples = []
+        for sample in AnalysisPipe.database.getSamples():
+            if sample.name in returnedSampleNames: samples.append(sample)
+        if not samples:
+            #p.join()
+            return 0
+    
+        for value in referenceBaseCount.values(): assert value == max(referenceBaseCount.values()) or value == 1, str(value)+' == '+str(max(referenceBaseCount.values()))
+        htmlColors = ['AliceBlue','AntiqueWhite','Aqua','Aquamarine','Azure','Beige','Bisque','Black','BlanchedAlmond','Blue','BlueViolet','Brown','BurlyWood','CadetBlue','Chartreuse','Chocolate','Coral','CornflowerBlue','Cornsilk','Crimson','Cyan','DarkBlue','DarkCyan','DarkGoldenRod','DarkGray','DarkGreen','DarkKhaki','DarkMagenta','DarkOliveGreen','DarkOrange','DarkOrchid','DarkRed','DarkSalmon','DarkSeaGreen','DarkSlateBlue','DarkSlateGray','DarkTurquoise','DarkViolet','DeepPink','DeepSkyBlue','DimGray','DodgerBlue','FireBrick','FloralWhite','ForestGreen','Fuchsia','Gainsboro','GhostWhite','Gold','GoldenRod','Gray','Green','GreenYellow','HoneyDew','HotPink','IndianRed','Indigo','Ivory','Khaki','Lavender','LavenderBlush','LawnGreen','LemonChiffon','LightBlue','LightCoral','LightCyan','LightGoldenRodYellow','LightGray','LightGreen','LightPink','LightSalmon','LightSeaGreen','LightSkyBlue','LightSlateGray','LightSteelBlue','LightYellow','Lime','LimeGreen','Linen','Magenta','Maroon','MediumAquaMarine','MediumBlue','MediumOrchid','MediumPurple','MediumSeaGreen','MediumSlateBlue','MediumSpringGreen','MediumTurquoise','MediumVioletRed','MidnightBlue','MintCream','MistyRose','Moccasin','NavajoWhite','Navy','OldLace','Olive','OliveDrab','Orange','OrangeRed','Orchid','PaleGoldenRod','PaleGreen','PaleTurquoise','PaleVioletRed','PapayaWhip','PeachPuff','Peru','Pink','Plum','PowderBlue','Purple','Red','RosyBrown','RoyalBlue','SaddleBrown','Salmon','SandyBrown','SeaGreen','SeaShell','Sienna','Silver','SkyBlue','SlateBlue','SlateGray','Snow','SpringGreen','SteelBlue','Tan','Teal','Thistle','Tomato','Turquoise','Violet','Wheat','WhiteSmoke','Yellow','YellowGreen']
+        linestyles = ['-',':','--','-.']
+        colors = ['b','b:','r','r:','g','g:','c','c:','m','m:','y','y:','k','k:']+[i+'--' for i in 'rgbcmyk']+[i+'-.' for i in 'rgbcmyk'] # ['-' | '--' | '-.' | ':' | 'None' | ' ' | '']
+    
+        # lorenz curve and gini index
+        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Generating lorentzcurve graph...\n')
+        fig, axes = plt.subplots(1, sharex=True)
+        plots = []
+        a = [i/10.0 for i in range(0,11,1)]
+        plots.append(axes.plot(a, a,'b-o',label='EvenDist, 0.00%'))
+        incrementer=0
+        incrementer2=0
+        incrementer3=0
+        for sample in samples:
+            x = plotData[sample.name]['gini_x']
+            y = plotData[sample.name]['gini_y']
+            B = sum( [((y[i]+y[i+1])/2.0)*(x[i+1]-x[i]) for i in range(len(x)-1)] )
+            A = 0.5 - B
+            G = A / (A + B)
+            assert A + B == 0.5
+            assert G == 2*A
+            assert G == 1 - 2*B
+            giniApprox = round(100*G,2)
+            try: plots.append(axes.plot(x, y,colors[incrementer],label=sample.name+', '+str(giniApprox)+'%'))
+            except IndexError:
+              plots.append(axes.plot(x, y,color=htmlColors[incrementer2],linestyle=linestyles[incrementer3],label=sample.name+', '+str(giniApprox)+'%'))
+              if incrementer3 == 3:
+                  incrementer2+=1
+                  incrementer3 = 0
+              else: incrementer3+=1
+            incrementer+=1
+        handles, labels = axes.get_legend_handles_labels()
+        hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
+        handles2, labels2 = zip(*hl)
+        axes.legend(handles2, labels2,loc=0,fontsize='small')
+        axes.set_xlabel('% of Targeted Bases')
+        axes.set_ylabel('% of Sequenced Bases')
+        plt.savefig(AnalysisPipe.path+'/graphics/lorentzCurve.pdf',dpi=50,bbox_inches='tight')
+        plt.savefig(AnalysisPipe.path+'/graphics/lorentzCurve.png',dpi=50,bbox_inches='tight')
+    
+        # lorenz curve and gini index covered only
+        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Generating lorentzcurve graph for only covered bases...\n')
+        fig, axes = plt.subplots(1, sharex=True)
+        plots = []
+        a = [i/10.0 for i in range(0,11,1)]
+        plots.append(axes.plot(a, a,'b-o',label='EvenDist, 0.00%'))
+        incrementer=0
+        incrementer2=0
+        incrementer3=0
+        for sample in samples:
+            x = plotData[sample.name]['gini_x_cov']
+            y = plotData[sample.name]['gini_y_cov']
+            B = sum( [((y[i]+y[i+1])/2.0)*(x[i+1]-x[i]) for i in range(len(x)-1)] )
+            A = 0.5 - B
+            G = A / (A + B)
+            assert A + B == 0.5
+            assert G == 2*A
+            assert G == 1 - 2*B
+            giniApprox = round(100*G,2)
+            try: plots.append(axes.plot(x, y,colors[incrementer],label=sample.name+', '+str(giniApprox)+'%'))
+            except IndexError:
+              plots.append(axes.plot(x, y,color=htmlColors[incrementer2],linestyle=linestyles[incrementer3],label=sample.name+', '+str(giniApprox)+'%'))
+              if incrementer3 == 3:
+                  incrementer2+=1
+                  incrementer3 = 0
+              else: incrementer3+=1
+            incrementer+=1
+        handles, labels = axes.get_legend_handles_labels()
+        hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
+        handles2, labels2 = zip(*hl)
+        axes.legend(handles2, labels2,loc=0,fontsize='small')
+        axes.set_xlabel('% of Covered Bases')
+        axes.set_ylabel('% of Sequenced Bases')
+        plt.savefig(AnalysisPipe.path+'/graphics/lorentzCurveCoveredOnly.pdf',dpi=50,bbox_inches='tight')
+        plt.savefig(AnalysisPipe.path+'/graphics/lorentzCurveCoveredOnly.png',dpi=50,bbox_inches='tight')
+    
+        # make coverage at rd plot
+        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Generating coverage at rd graph...\n')
+        fig, axes = plt.subplots(1, sharex=True)
+        plots = []
+        incrementer=0
+        incrementer2=0
+        incrementer3=0
+        for sample in samples:
+            try: plots.append(axes.plot(plotData[sample.name]['cAtRd_x'], plotData[sample.name]['cAtRd_y'], colors[incrementer],label=sample.name))
+            except IndexError:
+              plots.append( axes.plot(plotData[sample.name]['cAtRd_x'], plotData[sample.name]['cAtRd_y'], color=htmlColors[incrementer2],linestyle=linestyles[incrementer3],label=sample.name) )
+              if incrementer3 == 3:
+                  incrementer2+=1
+                  incrementer3 = 0
+              else: incrementer3+=1
+            axes.set_xlim([1,50])
+            incrementer+=1
+        handles, labels = axes.get_legend_handles_labels()
+        hl = sorted(zip(handles, labels), key=operator.itemgetter(1))
+        handles2, labels2 = zip(*hl)
+        axes.legend(handles2, labels2,loc=0,fontsize='small')
+        axes.set_xlabel('Read Depth')
+        axes.set_ylabel('% of targeted bases')
+        plt.savefig(AnalysisPipe.path+'/graphics/exomecoverage.pdf',dpi=50,bbox_inches='tight')
+        plt.savefig(AnalysisPipe.path+'/graphics/exomecoverage.png',dpi=50,bbox_inches='tight')
+    
+        #p.join()
+        
+        return 0
+
+    def makeRdOverChromGraph(self,):
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import operator
+        import sys
+        import os
+        import time
+        import multiprocessing
+    
+        sampleCount = sum([1 for sample in AnalysisPipe.database.getSamples()])
+    
+        #poolOfProcesses = multiprocessing.Pool(min([multiprocessing.cpu_count(),sampleCount]),maxtasksperchild=1)
+        #parallelResults = poolOfProcesses.imap_unordered(parallelMakeRDOverChromPlots,AnalysisPipe.database.getSamples(),chunksize=1)
+    
+        referenceBaseCount ={}
+        plotData = {}
+        returnedSampleNames = []
+        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Creating per chromosome RD graphs ...\n')
+        #for output in parallelResults:
+        for sample in AnalysisPipe.database.getSamples():
+            output = parallelMakeRDOverChromPlots(sample)
+            if not output: continue
+            sample = output
+            returnedSampleNames.append(sample.name)
+        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# All RD over chrom plots made.\n')
+        #poolOfProcesses.terminate()
+        #poolOfProcesses.join()
 
 def submitSbatch(filename,dependency=None):
 
@@ -437,7 +723,730 @@ def submitSbatch(filename,dependency=None):
 
     return jobid        
 
+def getIsizeData(sample):
+    import time
+    import operator
+    import shutil
+    import os
+    import sys
+    import pysam
+    import gzip
 
+    try: uppmax_temp = os.environ["SNIC_TMP"]
+    except:
+      uppmax_temp = None
+      print 'Not on uppmax no temporary directory'
 
+    isizes = {}
+    
+    if not os.path.exists(sample.dataPath+'/'+sample.name+'.iSizes.pylist.gz'):
+      if not os.path.exists(sample.dataPath+'/'+sample.name+'.noDuplicates.bam'):
+          AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Skipping iSize stats for sample '+sample.name+' the infile has not been created yet...\n')
+          return sample, isizes
+    
+      if uppmax_temp:
+          try:os.mkdir(uppmax_temp+'/fnuttglugg_TMP')
+          except OSError:pass
+          if not os.path.exists(uppmax_temp+'/fnuttglugg_TMP'+'/'+sample.name+'.noDuplicates.bam'):
+            AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Copying '+sample.dataPath+'/'+sample.name+'.noDuplicates.bam'+' to temp location for faster reading from disk, '+uppmax_temp+'/fnuttglugg_TMP'+'/'+sample.name+'.noDuplicates.bam'+' \n')
+            shutil.copy(sample.dataPath+'/'+sample.name+'.noDuplicates.bam',uppmax_temp+'/fnuttglugg_TMP'+'/'+sample.name+'.noDuplicates.bam')
+          else:
+            print 'WARNING: rerun of '+uppmax_temp+'/fnuttglugg_TMP'+'/'+sample.name+'.noDuplicates.bam'+' skipping copy!!'
+            AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# WARNING: rerun of '+uppmax_temp+'/fnuttglugg_TMP'+'/'+sample.name+'.noDuplicates.bam'+' skipping copy!!\n')
+          bamfileName  = uppmax_temp+'/fnuttglugg_TMP'+'/'+sample.name+'.noDuplicates.bam'
+      else:bamfileName = sample.dataPath+'/'+sample.name+'.noDuplicates.bam'
+      if uppmax_temp:
+          try:os.mkdir(uppmax_temp+'/fnuttglugg_TMP')
+          except OSError:pass
+          if not os.path.exists(uppmax_temp+'/fnuttglugg_TMP'+'/'+sample.name+'.noDuplicates.bai'):
+            AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Copying '+sample.dataPath+'/'+sample.name+'.noDuplicates.bai'+' to temp location for faster reading from disk, '+uppmax_temp+'/fnuttglugg_TMP'+'/'+sample.name+'.noDuplicates.bai'+' \n')
+            try: shutil.copy(sample.dataPath+'/'+sample.name+'.noDuplicates.bai',uppmax_temp+'/fnuttglugg_TMP'+'/'+sample.name+'.noDuplicates.bai')
+            except IOError as e: pass
+          else:
+            print 'WARNING: rerun of '+uppmax_temp+'/fnuttglugg_TMP'+'/'+sample.name+'.noDuplicates.bai'+' skipping copy!!'
+            AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# WARNING: rerun of '+uppmax_temp+'/fnuttglugg_TMP'+'/'+sample.name+'.noDuplicates.bai'+' skipping copy!!\n')
+    
+      # do work here
+      try: bamfile = pysam.Samfile(bamfileName, "rb")
+      except IOError:
+          AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Skipping insert size plot for sample '+sample.name+' the infile has not been created yet...\n')
+          return sample, isizes
+      except ValueError:
+          AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Skipping insert size plot for sample '+sample.name+' the infile is not finished for processing...\n')
+          return sample, isizes
+    
+      AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Loading insert sizes for sample '+sample.name+'...\n')
+      try:
+          for read in bamfile.fetch():
+            #if read.tlen >= 1: isizes.append(int(read.tlen))
+            if read.tlen >= 1:
+                try: isizes[int(read.tlen)] +=1
+                except KeyError:isizes[int(read.tlen)] =1
+      except ValueError as e:
+          if e == 'fetch called on bamfile without index':
+            AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Skipping insert size plot for sample '+sample.name+' the bam index is not present...\n')
+            sys.stderr.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Skipping insert size plot for sample '+sample.name+' the bam index is not present...\n')
+            return sample, isizes
+      #isizes.sort()
+      isizesFile = gzip.open(sample.dataPath+'/'+sample.name+'.iSizes.pylist.gz','wb',9)
+      isizesFile.write(str(isizes))
+      isizesFile.close()
+    else:
+      AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Loading isizes from iSizes.pylist-file '+sample.name+' ...\n')
+      isizes = eval(gzip.open(sample.dataPath+'/'+sample.name+'.iSizes.pylist.gz','rb').read())
+
+    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# joining to main, '+sample.name+' ...\n')
+    return sample, isizes
+
+def getGiniData(sample):
+
+    import time
+    import operator
+    import shutil
+    import os
+    import sys
+    from misc import thousandString, percentage
+
+    try: uppmax_temp = os.environ["SNIC_TMP"]
+    except:
+      uppmax_temp = None
+      print 'Not on uppmax no temporary directory'
+
+    #LOADING
+    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Loading data for sample '+sample.name+' ...\n')
+
+    def bedtoolsversion2(uppmax_temp):
+    
+        import re
+        
+        perBaseCoverages = {}
+        perBaseCoverages[sample.name] = {0:1}
+        depthPerPosition = {}
+        depthPerPosition[sample.name] = {}
+        referenceBaseCount = {}
+        referenceBaseCount[sample.name] = 1
+        lastChrom = None
+        referenceBaseCountChrom = {}
+        counter = 0
+  
+        if (AnalysisPipe.settings.mode=='wgs' and not os.path.exists(sample.dataPath+'/'+sample.name+'.bedtools.genomecov.nonPhysical.histogram.gz')) or (AnalysisPipe.settings.mode=='exome' and not os.path.exists(sample.dataPath+'/'+sample.name+'.bedtools.exomecoverage.nonPhysical.histogram.gz')):
+            AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Skipping coverage stats for sample '+sample.name+' the infile has not been created yet...\n')
+            return depthPerPosition,perBaseCoverages,referenceBaseCountChrom,referenceBaseCount
+  
+        import gzip
+        if AnalysisPipe.settings.mode == 'exome': bedtoolsFile = gzip.open(sample.dataPath+'/'+sample.name+'.bedtools.exomecoverage.nonPhysical.histogram.gz')
+        elif AnalysisPipe.settings.mode == 'wgs': bedtoolsFile = gzip.open(sample.dataPath+'/'+sample.name+'.bedtools.genomecov.nonPhysical.histogram.gz')
+  
+        if not bedtoolsFile: return depthPerPosition,perBaseCoverages,referenceBaseCountChrom,referenceBaseCount
+  
+        for line in bedtoolsFile:
+            
+            line = line.rstrip().split('\t')
+            
+            if AnalysisPipe.settings.mode == 'wgs' and not re.match('genome',line[0]): continue
+            if AnalysisPipe.settings.mode == 'exome' and not re.match('all',line[0]): continue
+            
+            
+            #genome	0	3097784897	3101804739	0.998704
+            referenceBaseCount[sample.name] = int(line[3])
+            perBaseCoverages[sample.name][int(line[1])] = int(line[2])
+        bedtoolsFile.close()
+  
+        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Data in subprocess memeory, '+sample.name+' ...\n')
+  
+        return depthPerPosition,perBaseCoverages,referenceBaseCountChrom,referenceBaseCount
+
+    depthPerPosition,perBaseCoverages,referenceBaseCountChrom,referenceBaseCount = bedtoolsversion2(uppmax_temp)
+
+    #GINI targeted
+    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Lorentz/Gini processing, '+sample.name+' ...\n')
+    pre_x = [count for rd, count in sorted(perBaseCoverages[sample.name].iteritems(), key=operator.itemgetter(0))]
+    pre_y = [rd*count for rd, count in sorted(perBaseCoverages[sample.name].iteritems(), key=operator.itemgetter(0))]
+    pre_x2 = [sum(pre_x[:i]) for i in range(len(pre_x))]
+    pre_y2 = [sum(pre_y[:i]) for i in range(len(pre_y))]
+    sequencedBases = sum(pre_y)
+    try:
+      gini_x = [0]+[float(value)/referenceBaseCount[sample.name] for value in pre_x2]
+      gini_y = [0]+[float(value)/sequencedBases  for value in pre_y2]
+    except ZeroDivisionError:
+      gini_x = [0]
+      gini_y = [0]
+
+    #GINI covered
+    pre_x = [count for rd, count in sorted(perBaseCoverages[sample.name].iteritems(), key=operator.itemgetter(0))][1:] # do not include positions with coverage 0
+    pre_y = [rd*count for rd, count in sorted(perBaseCoverages[sample.name].iteritems(), key=operator.itemgetter(0))][1:] # do not include positions with coverage 0
+    pre_x2 = [sum(pre_x[:i]) for i in range(len(pre_x))]
+    pre_y2 = [sum(pre_y[:i]) for i in range(len(pre_y))]
+    sequencedBases = sum(pre_y)
+    coveredBases = sum([count for rd, count in sorted(perBaseCoverages[sample.name].iteritems(), key=operator.itemgetter(0))][1:])
+    print '#',sample.name+':','covered',thousandString(str(coveredBases)),'| targeted',thousandString(str(referenceBaseCount[sample.name])),'| Percentege coverage of target ('+AnalysisPipe.settings.mode+')',percentage(coveredBases,referenceBaseCount[sample.name]),'%'
+    print str(float(sequencedBases)/referenceBaseCount[sample.name])+'x average coverage'
+    with open(sample.dataPath+'/targetCoveragestat.txt','w') as outputfile: outputfile.write('# '+sample.name+': covered '+thousandString(str(coveredBases))+' | targeted '+thousandString(str(referenceBaseCount[sample.name]))+' | Percentege coverage of target ('+AnalysisPipe.settings.mode+') '+str(percentage(coveredBases,referenceBaseCount[sample.name]))+' %\n')
+    try:
+      gini_x_cov = [0]+[float(value)/coveredBases for value in pre_x2]
+      gini_y_cov = [0]+[float(value)/sequencedBases  for value in pre_y2]
+    except ZeroDivisionError:
+      gini_x_cov = [0]
+      gini_y_cov = [0]
+
+    # COVERAGE AT RD
+    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Coverage@RD processing, '+sample.name+' ...\n')
+    sample.MaxCoverage = max( perBaseCoverages[sample.name].keys() )
+    sample.MinCoverage = min( perBaseCoverages[sample.name].keys() )
+    sample.AverageCoverage = sum( [rd*count for rd,count in perBaseCoverages[sample.name].iteritems()] ) / sum( perBaseCoverages[sample.name].values() )
+    #print sample.name,sampleMinCoverage,sampleMaxCoverage,sampleAverageCoverage
+    cAtRd_x = sorted(perBaseCoverages[sample.name].keys())
+    y = [count for rd,count in sorted(perBaseCoverages[sample.name].iteritems(),key=operator.itemgetter(0))]
+    cAtRd_y = [percentage(sum(y[i:]),referenceBaseCount[sample.name]) for i in range(len(y))] # cumulative y
+
+    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# joining to main, '+sample.name+' ...\n')
+    return sample, gini_x, gini_y,gini_x_cov, gini_y_cov, cAtRd_x, cAtRd_y, referenceBaseCount[sample.name]
+
+def parallelMakeRDOverChromPlots(sample): #this function need to call some other function and nice commenting to make sense, it works though is currently a mess.
+    
+    import sys
+    import gzip
+    import itertools
+    import time
+    import pysam
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import operator
+    import os
+    import multiprocessing
+    import glob
+    from misc import thousandString, percentage
+    
+    #
+    # set colors for plots
+    #
+    patcolor = '#1975FF'
+    doncolor = '#FF3399'
+    mixcolor = '#CC9900'
+    othercolor = "#e70000"
+
+    #
+    # get chromosome sizes
+    #
+    if not os.path.exists(sample.dataPath+'/'+sample.name+'.noDuplicates.bam'):
+        AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Cannot fetch chromsizes from bam for sample '+sample.name+' the infile has not been created yet...\n')
+        return sample
+    bamfileName = sample.dataPath+'/'+sample.name+'.noDuplicates.bam'
+    try: bamfile = pysam.Samfile(bamfileName, "rb")
+    except IOError:
+        AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Cannot fetch chromsizes from bam for sample '+sample.name+' the infile has not been created yet...\n')
+        return sample
+    except ValueError:
+        AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Cannot fetch chromsizes from bam for sample '+sample.name+' the infile is not finished for processing...\n')
+        return sample
+    lengthOfChromByName = {}
+    for chrom in bamfile.header['SQ']: lengthOfChromByName[chrom['SN']] = chrom['LN']
+    
+    #
+    # make directory for plots
+    #
+    try: os.makedirs(sample.plotsPath)
+    except OSError:pass
+
+    #
+    # Decide what infile to use
+    #
+    if AnalysisPipe.settings.mode == 'wgs':    bedfile = sample.dataPath+'/'+sample.name+'.bedtools.genomecov.nonPhysical.bedgraph.gz'
+    elif AnalysisPipe.settings.mode == 'exome':
+        bedfile = sample.dataPath+'/'+sample.name+'.bedtools.coverage.nonPhysical.bed.gz'
+        #bedfile = sample.dataPath+'/'+sample.name+'.bedtools.genomecov.nonPhysical.bedgraph.gz'
+    postitionTranslationDict = {chrom:{0:0}  for chrom in lengthOfChromByName}
+    try: # open befile
+        if bedfile.split('.')[-1] in ['gz','gzip']:bedfile = gzip.open(bedfile)
+        else:bedfile = open(bedfile)
+    except IOError: return sample
+
+    #
+    # set window size and initiate other "variables"
+    #
+    if AnalysisPipe.settings.mode=='wgs':slidingWindowSize = 10000
+    if AnalysisPipe.settings.mode=='exome':slidingWindowSize = 10000
+    lastChromosome = None
+    referencePositions = []
+    readDepths = []
+    tmp=0
+    bedFileRowNumber = 0
+    
+    #
+    # Get positions of SNPs for identification and ADOrate estimation
+    #
+    if os.path.exists(sample.dataPath+'/identificationVariantsList.tsv'):
+        #snps = {chrom:{'Patient':[],'Donor':[],'mix':[],'other':[]} for chrom in lengthOfChromByName}
+        snps = {chrom:[] for chrom in lengthOfChromByName}
+        with open(sample.dataPath+'/identificationVariantsList.tsv') as infile:
+            for line in infile:
+                chrom,pos,rsid,classification,gt,gq,dp,ad = line.rstrip().split('\t')
+                #snps[chrom][classification].append(int(pos))
+                snps[chrom].append([int(pos),classification])
+    else: snps = None
+    potentialInFiles = list(glob.iglob( sample.dataPath+'/adoVariantsList.ref=*.tsv' ))
+    eraseAdo = False
+    if len(potentialInFiles) >= 1:
+        #ado = {chrom:{'dropout':[],'correct':[]} for chrom in lengthOfChromByName}
+        ado = {chrom:[] for chrom in lengthOfChromByName}
+        if len(potentialInFiles) == 1: infile = potentialInFiles[0]
+        if len(potentialInFiles) > 1:
+            data = open(sample.dataPath+'/sampleClassification.txt').read().split('\n')
+            refsample = data[1]
+            infile = sample.dataPath+'/adoVariantsList.ref='+refsample+'.tsv'
+            if data[0] == 'mix' or data[0] =='Unknown':  infile = potentialInFiles[0]; eraseAdo = True
+        with open(infile) as infile:
+            for line in infile:
+                chrom,pos,rsid,classification,gt,gq,dp,ad = line.rstrip().split('\t')
+                if classification == 'NoData': continue
+                try: ado[chrom].append([int(pos),classification])
+                except KeyError: pass
+    else: ado = None
+    if eraseAdo:  ado = None
+
+    #
+    # Start parsiing throug bedfile
+    #
+    for line in bedfile:
+        bedFileRowNumber += 1
+  
+        if line.split('\t')[0][0] == 'G': continue
+        currentChromosome = line.split('\t')[0]
+  
+        if currentChromosome != lastChromosome:
+            #
+            # NEW CHROMOSOME initiate new variables make plots and summaries
+            #
+            if AnalysisPipe.settings.mode=='wgs':outputEvery = lengthOfChromByName[currentChromosome]/1000
+            if AnalysisPipe.settings.mode=='exome':outputEvery = lengthOfChromByName[currentChromosome]/(1000*100)#exome approx 1%
+            currentPosition = outputEvery
+            windowLower = currentPosition-slidingWindowSize/2
+            windowUpper = currentPosition+slidingWindowSize/2
+  
+            # for all chroms that != None and have read depth data for the ref
+            if lastChromosome:
+                if rdOverRef_x and rdOverRef_y:
+                    
+                    #
+                    # Convert the position translation dictionary
+                    #
+                    invertedPostitionTranslationDict = {lastChromosome:{tmpRowNumber:tmpPosition for tmpPosition,tmpRowNumber in postitionTranslationDict[lastChromosome].iteritems()}}
+    
+                    sys.stderr.write(sample.name+' making plot chromosome '+lastChromosome+' ...\n')
+                    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Generating rd over reference graph '+sample.name+'(pid='+str(os.getpid())+') chrom='+lastChromosome+'...\n')
+                    
+                    #
+                    # make boxplot
+                    #
+                    fig, ax = plt.subplots(1, sharex=True)
+                    ax.set_title("Chromosome "+str(lastChromosome)+" RD boxplot")
+                    #ax.plot(rdOverRef_x, rdOverRef_y, lw=1,color="green")
+                    moreThanZero = [i for i in rdOverRef_y if i > 0]
+                    plt.boxplot([rdOverRef_y,moreThanZero])
+                    plt.savefig(sample.plotsPath+'/boxplotRD.'+sample.name+'.'+lastChromosome+'.pdf',dpi=50,bbox_inches="tight")
+                    plt.savefig(sample.plotsPath+'/boxplotRD.'+sample.name+'.'+lastChromosome+'.png',dpi=50,bbox_inches="tight")
+                    plt.close(fig)
+                    
+                    #
+                    # plot the readdepth data
+                    #
+                    fig, axes = plt.subplots(1, sharex=True)
+                    if type(axes) != list: axes = [axes]
+                    fig.set_size_inches(30,3)
+                    if AnalysisPipe.settings.mode=='wgs': axes[0].set_title("Chromosome "+str(lastChromosome)+" wgs read depth/coverage")
+                    if AnalysisPipe.settings.mode=='exome': axes[0].set_title("Chromosome "+str(lastChromosome)+" concatenated exons read depth/coverage")
+                    tmpCounter = 0
+                    axes[tmpCounter].plot(rdOverRef_x, rdOverRef_y, lw=1,color="green")
+                    axes[tmpCounter].fill_between(rdOverRef_x,0,rdOverRef_y, color="green",alpha=0.5)
+                    axes[tmpCounter].set_xlabel(sample.name)
+                    
+                    #
+                    # Set X and Y scales
+                    #
+                    maxY = 0
+                    maxY = max([maxY,max(rdOverRef_y)])
+                    yscalemax = max([1,max([myround(maxY),2])])
+                    yscalemax = max([1,np.percentile(moreThanZero, 75)*2])
+                    if AnalysisPipe.settings.RDoverchromYscaleMax != 0: yscalemax = AnalysisPipe.settings.RDoverchromYscaleMax
+                    axes[tmpCounter].set_ylim( 0, yscalemax);
+                    if AnalysisPipe.settings.mode == 'wgs':   axes[tmpCounter].set_xlim( min(rdOverRef_x), lengthOfChromByName[lastChromosome])#max(rdOverRef_x) )
+                    if AnalysisPipe.settings.mode == 'exome': axes[tmpCounter].set_xlim( min(rdOverRef_x), max(rdOverRef_x) )
+                    
+                    #
+                    # Plot the identification and ADO estimation SNP positions
+                    #
+                    #snps = {lastChromosome:[[10479794,'Patient'],[38226767,'Patient'],[38226768,'Patient'],[38226769,'Patient'],[38226770,'Donor'],[90179536,'Donor'],[154026876,'Donor'],[186389971,'Patient'],[236140570,'Patient']]}
+                    if snps:
+                        lastClass = None
+                        chunkPositions = []
+                        for pos,classification in snps[lastChromosome]:
+                            if classification != lastClass:
+                                if chunkPositions and lastClass:
+                                    if AnalysisPipe.settings.mode=='exome':
+                                        tmpChunkPositions = chunkPositions
+                                        chunkPositions = []
+                                        for tmpPos in tmpChunkPositions:
+                                                try: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos])
+                                                except KeyError:
+                                                    if tmpPos+1 in postitionTranslationDict[lastChromosome]: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos+1])
+                                                    elif tmpPos-1 in postitionTranslationDict[lastChromosome]: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos-1])
+                                                    else: AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# cannot fin position translation for '+sample.name+' chrom='+lastChromosome+' position='+thousandString(tmpPos)+'...\n')
+                                    #print sample.name, lastChromosome, lastClass, len(chunkPositions), [thousandString(i) for i in chunkPositions]
+                                    if   lastClass == 'Patient': axes[tmpCounter].plot(chunkPositions,[yscalemax*0.95 for i in chunkPositions],'o-',color=patcolor)
+                                    elif lastClass == 'Donor':   axes[tmpCounter].plot(chunkPositions,[yscalemax*0.90 for i in chunkPositions],'o-',color=doncolor)
+                                    elif lastClass == 'mix':     axes[tmpCounter].plot(chunkPositions,[yscalemax*0.85 for i in chunkPositions],'o-',color=mixcolor)
+                                    elif lastClass == 'other':   axes[tmpCounter].plot(chunkPositions,[yscalemax*0.80 for i in chunkPositions],'o-',color=othercolor)
+                                chunkPositions = [pos]
+                                lastClass = classification
+                            else:
+                                chunkPositions.append(pos)
+                        if chunkPositions and lastClass:
+                            if AnalysisPipe.settings.mode=='exome':
+                                tmpChunkPositions = chunkPositions
+                                chunkPositions = []
+                                for tmpPos in tmpChunkPositions:
+                                    try: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos])
+                                    except KeyError:
+                                        if tmpPos+1 in postitionTranslationDict[lastChromosome]: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos+1])
+                                        elif tmpPos-1 in postitionTranslationDict[lastChromosome]: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos-1])
+                                        else: AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# cannot fin position translation for '+sample.name+' chrom='+lastChromosome+' position='+thousandString(tmpPos)+'...\n')
+                            if   lastClass == 'Patient': axes[tmpCounter].plot(chunkPositions,[yscalemax*0.95 for i in chunkPositions],'o-',color=patcolor)
+                            elif lastClass == 'Donor':   axes[tmpCounter].plot(chunkPositions,[yscalemax*0.90 for i in chunkPositions],'o-',color=doncolor)
+                            elif lastClass == 'mix':     axes[tmpCounter].plot(chunkPositions,[yscalemax*0.85 for i in chunkPositions],'o-',color=mixcolor)
+                            elif lastClass == 'other':   axes[tmpCounter].plot(chunkPositions,[yscalemax*0.80 for i in chunkPositions],'o-',color=othercolor)
+                        #if snps[lastChromosome]['Patient']: axes[tmpCounter].plot(snps[lastChromosome]['Patient'],[yscalemax*0.95 for i in snps[lastChromosome]['Patient']],'o',color=patcolor)
+                        #if snps[lastChromosome]['Donor']:   axes[tmpCounter].plot(snps[lastChromosome]['Donor'],  [yscalemax*0.90 for i in snps[lastChromosome]['Donor']],  'o',color=doncolor)
+                        #if snps[lastChromosome]['mix']:     axes[tmpCounter].plot(snps[lastChromosome]['mix'],    [yscalemax*0.85 for i in snps[lastChromosome]['mix']],    'o',color=mixcolor)
+                        #if snps[lastChromosome]['other']:   axes[tmpCounter].plot(snps[lastChromosome]['other'],  [yscalemax*0.80 for i in snps[lastChromosome]['other']],  'o',color=othercolor)
+                    if ado:
+                        lastClass = None
+                        chunkPositions = []
+                        #print sample.name, ado[lastChromosome]
+                        for pos,classification in ado[lastChromosome]:
+                            if classification != lastClass:
+                                #print sample.name, lastChromosome, lastClass, len(chunkPositions), [thousandString(i) for i in chunkPositions]
+                                if chunkPositions and lastClass:
+                                    #print sample.name, lastClass, chunkPositions,'BEFORE'
+                                    if AnalysisPipe.settings.mode=='exome':
+                                        tmpChunkPositions = chunkPositions
+                                        chunkPositions = []
+                                        for tmpPos in tmpChunkPositions:
+                                            try: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos])
+                                            except KeyError:AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# cannot fin position translation for '+sample.name+' chrom='+lastChromosome+' position='+thousandString(tmpPos)+'...\n')
+                                    #print sample.name, lastClass, chunkPositions
+                                    if   lastClass == 'correct': axes[tmpCounter].plot(chunkPositions,[yscalemax*0.75 for i in chunkPositions],'o-',color='yellow')
+                                    elif lastClass == 'dropout': axes[tmpCounter].plot(chunkPositions,[yscalemax*0.70 for i in chunkPositions],'o-',color='orangered')
+                                chunkPositions = [pos]
+                                lastClass = classification
+                            else:
+                                chunkPositions.append(pos)
+                        if chunkPositions and lastClass:
+                            if AnalysisPipe.settings.mode=='exome':
+                                tmpChunkPositions = chunkPositions
+                                chunkPositions = []
+                                for tmpPos in tmpChunkPositions:
+                                    try: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos])
+                                    except KeyError:AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# cannot fin position translation for '+sample.name+' chrom='+lastChromosome+' position='+thousandString(tmpPos)+'...\n')
+                            if   lastClass == 'correct': axes[tmpCounter].plot(chunkPositions,[yscalemax*0.75 for i in chunkPositions],'o-',color='yellow')
+                            elif lastClass == 'dropout': axes[tmpCounter].plot(chunkPositions,[yscalemax*0.70 for i in chunkPositions],'o-',color='orangered')
+    #			if ado[lastChromosome]['correct']: axes[tmpCounter].plot(ado[lastChromosome]['correct'],[yscalemax*0.75 for i in ado[lastChromosome]['correct']],'o--',color='yellow')
+    #			if ado[lastChromosome]['dropout']: axes[tmpCounter].plot(ado[lastChromosome]['dropout'],[yscalemax*0.70 for i in ado[lastChromosome]['dropout']],'o--',color='orangered')
+    #		    tmpCounter+=1
+                    
+                    #
+                    # Set X-ticks lables
+                    #
+                    if AnalysisPipe.settings.mode == 'wgs':
+                        a=axes[0].get_xticks().tolist()
+                        a = [thousandString(tmpPos) for tmpPos in a]
+                        axes[0].set_xticklabels(a)
+                    if AnalysisPipe.settings.mode == 'exome':
+                        a=axes[0].get_xticks().tolist()
+                        lasta = [a[-1]]
+                        a = [thousandString(invertedPostitionTranslationDict[lastChromosome][int(tmpPos)]) for tmpPos in a[:-1]]
+                        axes[0].set_xticklabels(a)
+                    
+                    #
+                    # Save the figure to png and pdf files
+                    #
+                    plt.savefig(sample.plotsPath+'/readDepth.'+sample.name+'.'+lastChromosome+'.pdf',dpi=50,bbox_inches="tight")
+                    plt.savefig(sample.plotsPath+'/readDepth.'+sample.name+'.'+lastChromosome+'.png',dpi=50,bbox_inches="tight")
+                    plt.close(fig)
+    
+            sys.stderr.write(sample.name+' start loading data chromosome '+currentChromosome+' ...\n')
+  
+            #
+            # Reset values for next chromosome
+            #
+            #print 'value reset after chrom',lastChromosome
+            currentPosition = outputEvery
+            windowLower = currentPosition-slidingWindowSize/2
+            windowUpper = currentPosition+slidingWindowSize/2
+            rdOverRef_y = []
+            rdOverRef_x = []
+            rowBuffer = []
+            lastChromosome = currentChromosome
+            if AnalysisPipe.settings.mode == 'wgs':
+                lineChrom,linePosFrom,linePosTo,lineDepth = line.rstrip().split('\t')
+                rowBuffer.append([lineChrom,0,int(linePosFrom),0])
+            if AnalysisPipe.settings.mode == 'exome':
+                bedFileRowNumber=1
+                lineChrom,fetureStart,featureEnd,strand,featureName,feturePos,lineDepth = line.rstrip().split('\t')
+                linePosFrom = bedFileRowNumber
+                linePosTo = bedFileRowNumber+1
+                #if bedFileRowNumber in [1587054, 159127, 1621117]: print bedFileRowNumber,'=',line.rstrip(),'==>',int(fetureStart)+int(feturePos)-1
+                #if int(fetureStart)+int(feturePos)-1 in [26604522, 26753942, 27238150]: print '#################################WTF', bedFileRowNumber,'=',line.rstrip(),'==>',int(fetureStart)+int(feturePos)-1
+                #if int(fetureStart)+int(feturePos)-1 in postitionTranslationDict[currentChromosome]: print 'OverWrite============>',int(fetureStart)+int(feturePos)-1,postitionTranslationDict[currentChromosome][int(fetureStart)+int(feturePos)-1],bedFileRowNumber
+                postitionTranslationDict[currentChromosome][int(fetureStart)+int(feturePos)-1] = bedFileRowNumber
+            #if tmp == 1:break
+            tmp +=1
+  
+        #
+        # read bedfile line and add to buffer
+        #
+        if AnalysisPipe.settings.mode == 'wgs':
+            lineChrom,linePosFrom,linePosTo,lineDepth = line.rstrip().split('\t')
+        if AnalysisPipe.settings.mode == 'exome':
+            lineChrom,fetureStart,featureEnd,strand,featureName,feturePos,lineDepth = line.rstrip().split('\t')
+            linePosFrom = bedFileRowNumber
+            linePosTo = bedFileRowNumber+1
+            #if bedFileRowNumber in [1587054, 159127, 1621117]: print 'ROW',bedFileRowNumber,'=',line.rstrip(),'==>',int(fetureStart)+int(feturePos)-1
+            #if int(fetureStart)+int(feturePos)-1 in [26604522, 26753942, 27238150]: print 'POS', bedFileRowNumber,'=',line.rstrip(),'==>',int(fetureStart)+int(feturePos)-1
+            #if int(fetureStart)+int(feturePos)-1 in postitionTranslationDict[currentChromosome]: print 'OverWrite============>',bedFileRowNumber,'=',line.rstrip(),'==>',int(fetureStart)+int(feturePos)-1,' already in @',postitionTranslationDict[currentChromosome][int(fetureStart)+int(feturePos)-1]
+            postitionTranslationDict[currentChromosome][int(fetureStart)+int(feturePos)-1] = bedFileRowNumber
+        rowBuffer.append([lineChrom,int(linePosFrom),int(linePosTo),int(lineDepth)])
+        
+        #
+        # when the buffer is large enough; calculate window average, remove from buffer start and move to next window
+        #
+        if windowUpper <= linePosTo and len(rowBuffer)>=10:
+
+            while windowUpper <= rowBuffer[-2][2]:
+                depthWindow = []
+                tmpBuffer = []
+
+                for row in rowBuffer:
+
+                    chrom,posFrom,posTo,depth = row
+          
+                    if posTo < windowLower: continue
+
+                    elif posTo >= windowLower:
+            
+                        tmpBuffer.append(row)
+
+                        if   posTo <  windowUpper:
+                            for i in xrange(max(windowLower,posFrom),posTo): depthWindow.append(depth)
+
+                        elif posTo >= windowUpper and posFrom < windowUpper:
+                            for i in xrange(max(windowLower,posFrom),windowUpper): depthWindow.append(depth)
+
+                        else: pass
+
+                    else: print 'Not possible!!'
+
+                rowBuffer = tmpBuffer
+
+                rdOverRef_x.append( currentPosition )
+                rdOverRef_y.append( float(sum(depthWindow) / float(len(depthWindow)) ))
+                currentPosition += outputEvery
+                windowLower = currentPosition-slidingWindowSize/2
+                windowUpper = currentPosition+slidingWindowSize/2
+        else: pass
+##################################################################################
+## TO NOT LOOSE LAST CHROMOSOME VERY UGLY THO SHOULD WORK NEED TO BE FIXED LATER #
+    currentChromosome = 'mockCHR'
+    if currentChromosome != lastChromosome:
+        #
+        # NEW CHROMOSOME initiate new variables make plots and summaries
+        #
+        #if AnalysisPipe.settings.mode=='wgs':outputEvery = lengthOfChromByName[currentChromosome]/1000
+        #if AnalysisPipe.settings.mode=='exome':outputEvery = lengthOfChromByName[currentChromosome]/(1000*100)#exome approx 1%
+        #currentPosition = outputEvery
+        #windowLower = currentPosition-slidingWindowSize/2
+        #windowUpper = currentPosition+slidingWindowSize/2
+
+        # for all chroms that != None and have read depth data for the ref
+        if lastChromosome:
+            if rdOverRef_x and rdOverRef_y:
+                
+                #
+                # Convert the position translation dictionary
+                #
+                invertedPostitionTranslationDict = {lastChromosome:{tmpRowNumber:tmpPosition for tmpPosition,tmpRowNumber in postitionTranslationDict[lastChromosome].iteritems()}}
+  
+                sys.stderr.write(sample.name+' making plot chromosome '+lastChromosome+' ...\n')
+                AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Generating rd over reference graph '+sample.name+'(pid='+str(os.getpid())+') chrom='+lastChromosome+'...\n')
+  
+                #
+                # make boxplot
+                #
+                fig, ax = plt.subplots(1, sharex=True)
+                ax.set_title("Chromosome "+str(lastChromosome)+" RD boxplot")
+                #ax.plot(rdOverRef_x, rdOverRef_y, lw=1,color="green")
+                moreThanZero = [i for i in rdOverRef_y if i > 0]
+                plt.boxplot([rdOverRef_y,moreThanZero])
+                plt.savefig(sample.plotsPath+'/boxplotRD.'+sample.name+'.'+lastChromosome+'.pdf',dpi=50,bbox_inches="tight")
+                plt.savefig(sample.plotsPath+'/boxplotRD.'+sample.name+'.'+lastChromosome+'.png',dpi=50,bbox_inches="tight")
+                plt.close(fig)
+                
+                #
+                # plot the readdepth data
+                #
+                fig, axes = plt.subplots(1, sharex=True)
+                if type(axes) != list: axes = [axes]
+                fig.set_size_inches(30,3)
+                if AnalysisPipe.settings.mode=='wgs': axes[0].set_title("Chromosome "+str(lastChromosome)+" wgs read depth/coverage")
+                if AnalysisPipe.settings.mode=='exome': axes[0].set_title("Chromosome "+str(lastChromosome)+" concatenated exons read depth/coverage")
+                tmpCounter = 0
+                axes[tmpCounter].plot(rdOverRef_x, rdOverRef_y, lw=1,color="green")
+                axes[tmpCounter].fill_between(rdOverRef_x,0,rdOverRef_y, color="green",alpha=0.5)
+                axes[tmpCounter].set_xlabel(sample.name)
+  
+                #
+                # Set X and Y scales
+                #
+                maxY = 0
+                maxY = max([maxY,max(rdOverRef_y)])
+                yscalemax = max([1,max([myround(maxY),2])])
+                yscalemax = max([1,np.percentile(moreThanZero, 75)*2])
+                axes[tmpCounter].set_ylim( 0, yscalemax);
+                if AnalysisPipe.settings.mode == 'wgs':   axes[tmpCounter].set_xlim( min(rdOverRef_x), lengthOfChromByName[lastChromosome])#max(rdOverRef_x) )
+                if AnalysisPipe.settings.mode == 'exome': axes[tmpCounter].set_xlim( min(rdOverRef_x), max(rdOverRef_x) )
+                
+                #
+                # Plot the identification and ADO estimation SNP positions
+                #
+                #snps = {lastChromosome:[[10479794,'Patient'],[38226767,'Patient'],[38226768,'Patient'],[38226769,'Patient'],[38226770,'Donor'],[90179536,'Donor'],[154026876,'Donor'],[186389971,'Patient'],[236140570,'Patient']]}
+                if snps and lastChromosome in snps:
+                    lastClass = None
+                    chunkPositions = []
+                    for pos,classification in snps[lastChromosome]:
+                        if classification != lastClass:
+                            if chunkPositions and lastClass:
+                                if AnalysisPipe.settings.mode=='exome':
+                                    tmpChunkPositions = chunkPositions
+                                    chunkPositions = []
+                                    for tmpPos in tmpChunkPositions:
+                                        try: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos])
+                                        except KeyError:
+                                            if tmpPos+1 in postitionTranslationDict[lastChromosome]: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos+1])
+                                            elif tmpPos-1 in postitionTranslationDict[lastChromosome]: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos-1])
+                                            else: AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# cannot fin position translation for '+sample.name+' chrom='+lastChromosome+' position='+thousandString(tmpPos)+'...\n')
+                                #print sample.name, lastChromosome, lastClass, len(chunkPositions), [thousandString(i) for i in chunkPositions]
+                                if   lastClass == 'Patient': axes[tmpCounter].plot(chunkPositions,[yscalemax*0.95 for i in chunkPositions],'o-',color=patcolor)
+                                elif lastClass == 'Donor':   axes[tmpCounter].plot(chunkPositions,[yscalemax*0.90 for i in chunkPositions],'o-',color=doncolor)
+                                elif lastClass == 'mix':     axes[tmpCounter].plot(chunkPositions,[yscalemax*0.85 for i in chunkPositions],'o-',color=mixcolor)
+                                elif lastClass == 'other':   axes[tmpCounter].plot(chunkPositions,[yscalemax*0.80 for i in chunkPositions],'o-',color=othercolor)
+                            chunkPositions = [pos]
+                            lastClass = classification
+                        else:
+                            chunkPositions.append(pos)
+                    if chunkPositions and lastClass:
+                        if AnalysisPipe.settings.mode=='exome':
+                            tmpChunkPositions = chunkPositions
+                            chunkPositions = []
+                            for tmpPos in tmpChunkPositions:
+                                try: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos])
+                                except KeyError:
+                                    if tmpPos+1 in postitionTranslationDict[lastChromosome]: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos+1])
+                                    elif tmpPos-1 in postitionTranslationDict[lastChromosome]: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos-1])
+                                    else: AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# cannot fin position translation for '+sample.name+' chrom='+lastChromosome+' position='+thousandString(tmpPos)+'...\n')
+                        if   lastClass == 'Patient': axes[tmpCounter].plot(chunkPositions,[yscalemax*0.95 for i in chunkPositions],'o-',color=patcolor)
+                        elif lastClass == 'Donor':   axes[tmpCounter].plot(chunkPositions,[yscalemax*0.90 for i in chunkPositions],'o-',color=doncolor)
+                        elif lastClass == 'mix':     axes[tmpCounter].plot(chunkPositions,[yscalemax*0.85 for i in chunkPositions],'o-',color=mixcolor)
+                        elif lastClass == 'other':   axes[tmpCounter].plot(chunkPositions,[yscalemax*0.80 for i in chunkPositions],'o-',color=othercolor)
+                    #if snps[lastChromosome]['Patient']: axes[tmpCounter].plot(snps[lastChromosome]['Patient'],[yscalemax*0.95 for i in snps[lastChromosome]['Patient']],'o',color=patcolor)
+                    #if snps[lastChromosome]['Donor']:   axes[tmpCounter].plot(snps[lastChromosome]['Donor'],  [yscalemax*0.90 for i in snps[lastChromosome]['Donor']],  'o',color=doncolor)
+                    #if snps[lastChromosome]['mix']:     axes[tmpCounter].plot(snps[lastChromosome]['mix'],    [yscalemax*0.85 for i in snps[lastChromosome]['mix']],    'o',color=mixcolor)
+                    #if snps[lastChromosome]['other']:   axes[tmpCounter].plot(snps[lastChromosome]['other'],  [yscalemax*0.80 for i in snps[lastChromosome]['other']],  'o',color=othercolor)
+                if ado and lastChromosome in ado:
+                    lastClass = None
+                    chunkPositions = []
+                    #print sample.name, ado[lastChromosome]
+                    for pos,classification in ado[lastChromosome]:
+                        if classification != lastClass:
+                            #print sample.name, lastChromosome, lastClass, len(chunkPositions), [thousandString(i) for i in chunkPositions]
+                            if chunkPositions and lastClass:
+                                #print sample.name, lastClass, chunkPositions,'BEFORE'
+                                if AnalysisPipe.settings.mode=='exome':
+                                    tmpChunkPositions = chunkPositions
+                                    chunkPositions = []
+                                    for tmpPos in tmpChunkPositions:
+                                        try: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos])
+                                        except KeyError:AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# cannot fin position translation for '+sample.name+' chrom='+lastChromosome+' position='+thousandString(tmpPos)+'...\n')
+                                #print sample.name, lastClass, chunkPositions
+                                if   lastClass == 'correct': axes[tmpCounter].plot(chunkPositions,[yscalemax*0.75 for i in chunkPositions],'o-',color='yellow')
+                                elif lastClass == 'dropout': axes[tmpCounter].plot(chunkPositions,[yscalemax*0.70 for i in chunkPositions],'o-',color='orangered')
+                            chunkPositions = [pos]
+                            lastClass = classification
+                        else:
+                            chunkPositions.append(pos)
+                    if chunkPositions and lastClass:
+                        if AnalysisPipe.settings.mode=='exome':
+                            tmpChunkPositions = chunkPositions
+                            chunkPositions = []
+                            for tmpPos in tmpChunkPositions:
+                                try: chunkPositions.append(postitionTranslationDict[lastChromosome][tmpPos])
+                                except KeyError:AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# cannot fin position translation for '+sample.name+' chrom='+lastChromosome+' position='+thousandString(tmpPos)+'...\n')
+                        if   lastClass == 'correct': axes[tmpCounter].plot(chunkPositions,[yscalemax*0.75 for i in chunkPositions],'o-',color='yellow')
+                        elif lastClass == 'dropout': axes[tmpCounter].plot(chunkPositions,[yscalemax*0.70 for i in chunkPositions],'o-',color='orangered')
+  #			if ado[lastChromosome]['correct']: axes[tmpCounter].plot(ado[lastChromosome]['correct'],[yscalemax*0.75 for i in ado[lastChromosome]['correct']],'o--',color='yellow')
+  #			if ado[lastChromosome]['dropout']: axes[tmpCounter].plot(ado[lastChromosome]['dropout'],[yscalemax*0.70 for i in ado[lastChromosome]['dropout']],'o--',color='orangered')
+  #		    tmpCounter+=1
+                
+                #
+                # Set X-ticks lables
+                #
+                if AnalysisPipe.settings.mode == 'wgs':
+                    a=axes[0].get_xticks().tolist()
+                    a = [thousandString(tmpPos) for tmpPos in a]
+                    axes[0].set_xticklabels(a)
+                if AnalysisPipe.settings.mode == 'exome':
+                    a=axes[0].get_xticks().tolist()
+                    lasta = [a[-1]]
+                    a = [thousandString(invertedPostitionTranslationDict[lastChromosome][int(tmpPos)]) for tmpPos in a[:-1]]
+                    axes[0].set_xticklabels(a)
+                
+                #
+                # Save the figure to png and pdf files
+                #
+                plt.savefig(sample.plotsPath+'/readDepth.'+sample.name+'.'+lastChromosome+'.pdf',dpi=50,bbox_inches="tight")
+                plt.savefig(sample.plotsPath+'/readDepth.'+sample.name+'.'+lastChromosome+'.png',dpi=50,bbox_inches="tight")
+                plt.close(fig)
+
+        sys.stderr.write(sample.name+' start loading data chromosome '+currentChromosome+' ...\n')
+
+        #
+        # Reset values for next chromosome
+        #
+        #print 'value reset after chrom',lastChromosome
+    #    currentPosition = outputEvery
+    #    windowLower = currentPosition-slidingWindowSize/2
+    #    windowUpper = currentPosition+slidingWindowSize/2
+    #    rdOverRef_y = []
+    #    rdOverRef_x = []
+    #    rowBuffer = []
+    #    lastChromosome = currentChromosome
+    #    if AnalysisPipe.settings.mode == 'wgs':
+    #	lineChrom,linePosFrom,linePosTo,lineDepth = line.rstrip().split('\t')
+    #	rowBuffer.append([lineChrom,0,int(linePosFrom),0])
+    #    if AnalysisPipe.settings.mode == 'exome':
+    #	bedFileRowNumber=1
+    #	lineChrom,fetureStart,featureEnd,strand,featureName,feturePos,lineDepth = line.rstrip().split('\t')
+    #	linePosFrom = bedFileRowNumber
+    #	linePosTo = bedFileRowNumber+1
+    #	#if bedFileRowNumber in [1587054, 159127, 1621117]: print bedFileRowNumber,'=',line.rstrip(),'==>',int(fetureStart)+int(feturePos)-1
+    #	#if int(fetureStart)+int(feturePos)-1 in [26604522, 26753942, 27238150]: print '#################################WTF', bedFileRowNumber,'=',line.rstrip(),'==>',int(fetureStart)+int(feturePos)-1
+    #	#if int(fetureStart)+int(feturePos)-1 in postitionTranslationDict[currentChromosome]: print 'OverWrite============>',int(fetureStart)+int(feturePos)-1,postitionTranslationDict[currentChromosome][int(fetureStart)+int(feturePos)-1],bedFileRowNumber
+    #	postitionTranslationDict[currentChromosome][int(fetureStart)+int(feturePos)-1] = bedFileRowNumber
+    #    #if tmp == 1:break
+        tmp +=1
+##################################################################################
+
+    #AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# joining to main, '+sample.name+' ...\n')    
+    return sample
+
+def myround(x, base=10): return int(base * round(float(x)/base))
 
 if __name__ == "__main__": main()

@@ -249,98 +249,99 @@ class Sample(object):
 
     def getReadOrientationStats(self,):
 
-	import time
-	import operator
-	import shutil
-	import os
-	import sys
-	import pysam
-	import time
-	import gzip
-	orientations = {'PP':0,'FR':0,'FRsp':0,'FF':0,'RF':0,'RR':0,'difChrom':0}
-	
-	if not os.path.exists(self.dataPath+'/orientations.pylist.gz'):	
-	
-	    try: uppmax_temp = os.environ["SNIC_TMP"]
-	    except:
-		uppmax_temp = None
-		print 'Not on uppmax no temporary directory'
-	
-	    if not os.path.exists(self.dataPath+'/'+self.name+'.noDuplicates.bam'): self.analysispipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Skipping oriantations stats for sample '+self.name+' the infile has not been created yet...\n'); return orientations
-	
-	    if uppmax_temp:
-		try:os.mkdir(uppmax_temp+'/fnuttglugg_TMP')
-		except OSError:pass
-		if not os.path.exists(uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bam'):
-		    self.analysispipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Copying '+self.dataPath+'/'+self.name+'.noDuplicates.bam'+' to temp location for faster reading from disk, '+uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bam'+' \n')
-		    shutil.copy(self.dataPath+'/'+self.name+'.noDuplicates.bam',uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bam')
-		else:
-		    print 'WARNING: rerun of '+uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bam'+' skipping copy!!'
-		    self.analysispipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# WARNING: rerun of '+uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bam'+' skipping copy!!\n')
-		bamfileName  = uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bam'
-	    else:bamfileName = self.dataPath+'/'+self.name+'.noDuplicates.bam'
-	    if uppmax_temp:
-		try:os.mkdir(uppmax_temp+'/fnuttglugg_TMP')
-		except OSError:pass
-		if not os.path.exists(uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bai'):
-		    self.analysispipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Copying '+self.dataPath+'/'+self.name+'.noDuplicates.bai'+' to temp location for faster reading from disk, '+uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bai'+' \n')
-		    try: shutil.copy(self.dataPath+'/'+self.name+'.noDuplicates.bai',uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bai')
-		    except IOError as e: pass
-		else:
-		    print 'WARNING: rerun of '+uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bai'+' skipping copy!!'
-		    self.analysispipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# WARNING: rerun of '+uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bai'+' skipping copy!!\n')
-	    
-    #	bamfileName = 	self.dataPath+'/'+self.name+'.noDuplicates.bam'
-	    try: bamfile = pysam.Samfile(bamfileName, "rb")
-	    except IOError:
-		self.analysispipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Skipping oriantation stats for sample '+self.name+' the infile has not been created yet...\n')
-		return orientations
-	    except ValueError:
-		self.analysispipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Skipping oriantation stats for sample '+self.name+' the infile is not finished for processing...\n')
-		return orientations
-	
-	    self.analysispipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Loading oriantation stats for sample '+self.name+'...\n')
-	    try:
-		for read in bamfile.fetch():
-    
-		    orientation = None
-		    if read.is_paired and not read.is_unmapped and not read.mate_is_unmapped:
-			if read.tid == read.rnext:
-			    if read.is_proper_pair:
-				orientation = 'PP'
-			    elif   read.pos < read.pnext:
-				if read.is_reverse: orientation = 'R'
-				else: orientation = 'F'
-				if read.mate_is_reverse: orientation += 'R'
-				else: orientation += 'F'
-			    elif read.pnext < read.pos:
-				if read.mate_is_reverse: orientation = 'R'
-				else: orientation = 'F'
-				if read.is_reverse: orientation += 'R'
-				else: orientation += 'F'
-			    elif   read.pos == read.pnext: orientation = 'FRsp'
-			else: orientation = 'difChrom'
-			orientations[orientation]+=1
-		total = sum(orientations.values())
-    
-		output = self.name+'\n'
-		for thingy,plingy in orientations.iteritems():
-		    output+= thingy+' '+str(percentage(plingy,total))+'\n'
-		print output
-    
-	    except ValueError as e:
-		if e == 'fetch called on bamfile without index':
-		    self.analysispipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Skipping insert size plot for sample '+self.name+' the bam index is not present...\n')
-		    sys.stderr.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Skipping insert size plot for sample '+self.name+' the bam index is not present...\n')
-		    return orientations
-
-	    orientationsOnDisk = gzip.open(self.dataPath+'/orientations.pylist.gz','wb',9)
-	    orientationsOnDisk.write(str(orientations))
-	    orientationsOnDisk.close()
-	else:
-	    self.analysispipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Loading orientations from orintations.pylist-file '+self.name+' ...\n')
-	    orientations = eval(gzip.open(self.dataPath+'/orientations.pylist.gz','rb').read())
-
-	self.analysispipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Loaded oriantation stats for sample '+self.name+' joining to main...\n')
-	return orientations
+        import time
+        import operator
+        import shutil
+        import os
+        import sys
+        import pysam
+        import time
+        import gzip
+        from misc import percentage
+        orientations = {'PP':0,'FR':0,'FRsp':0,'FF':0,'RF':0,'RR':0,'difChrom':0}
+        
+        if not os.path.exists(self.dataPath+'/orientations.pylist.gz'):	
+        
+            try: uppmax_temp = os.environ["SNIC_TMP"]
+            except:
+              uppmax_temp = None
+              print 'Not on uppmax no temporary directory'
+        
+            if not os.path.exists(self.dataPath+'/'+self.name+'.noDuplicates.bam'): self.analysispipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Skipping oriantations stats for sample '+self.name+' the infile has not been created yet...\n'); return orientations
+        
+            if uppmax_temp:
+              try:os.mkdir(uppmax_temp+'/fnuttglugg_TMP')
+              except OSError:pass
+              if not os.path.exists(uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bam'):
+                  self.analysispipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Copying '+self.dataPath+'/'+self.name+'.noDuplicates.bam'+' to temp location for faster reading from disk, '+uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bam'+' \n')
+                  shutil.copy(self.dataPath+'/'+self.name+'.noDuplicates.bam',uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bam')
+              else:
+                  print 'WARNING: rerun of '+uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bam'+' skipping copy!!'
+                  self.analysispipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# WARNING: rerun of '+uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bam'+' skipping copy!!\n')
+              bamfileName  = uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bam'
+            else:bamfileName = self.dataPath+'/'+self.name+'.noDuplicates.bam'
+            if uppmax_temp:
+              try:os.mkdir(uppmax_temp+'/fnuttglugg_TMP')
+              except OSError:pass
+              if not os.path.exists(uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bai'):
+                  self.analysispipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Copying '+self.dataPath+'/'+self.name+'.noDuplicates.bai'+' to temp location for faster reading from disk, '+uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bai'+' \n')
+                  try: shutil.copy(self.dataPath+'/'+self.name+'.noDuplicates.bai',uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bai')
+                  except IOError as e: pass
+              else:
+                  print 'WARNING: rerun of '+uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bai'+' skipping copy!!'
+                  self.analysispipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# WARNING: rerun of '+uppmax_temp+'/fnuttglugg_TMP'+'/'+self.name+'.noDuplicates.bai'+' skipping copy!!\n')
+            
+      #	bamfileName = 	self.dataPath+'/'+self.name+'.noDuplicates.bam'
+            try: bamfile = pysam.Samfile(bamfileName, "rb")
+            except IOError:
+              self.analysispipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Skipping oriantation stats for sample '+self.name+' the infile has not been created yet...\n')
+              return orientations
+            except ValueError:
+              self.analysispipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Skipping oriantation stats for sample '+self.name+' the infile is not finished for processing...\n')
+              return orientations
+        
+            self.analysispipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Loading oriantation stats for sample '+self.name+'...\n')
+            try:
+              for read in bamfile.fetch():
+      
+                  orientation = None
+                  if read.is_paired and not read.is_unmapped and not read.mate_is_unmapped:
+                    if read.tid == read.rnext:
+                        if read.is_proper_pair:
+                          orientation = 'PP'
+                        elif   read.pos < read.pnext:
+                          if read.is_reverse: orientation = 'R'
+                          else: orientation = 'F'
+                          if read.mate_is_reverse: orientation += 'R'
+                          else: orientation += 'F'
+                        elif read.pnext < read.pos:
+                          if read.mate_is_reverse: orientation = 'R'
+                          else: orientation = 'F'
+                          if read.is_reverse: orientation += 'R'
+                          else: orientation += 'F'
+                        elif   read.pos == read.pnext: orientation = 'FRsp'
+                    else: orientation = 'difChrom'
+                    orientations[orientation]+=1
+              total = sum(orientations.values())
+      
+              output = self.name+'\n'
+              for thingy,plingy in orientations.iteritems():
+                  output+= thingy+' '+str(percentage(plingy,total))+'\n'
+              print output
+      
+            except ValueError as e:
+              if e == 'fetch called on bamfile without index':
+                  self.analysispipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Skipping insert size plot for sample '+self.name+' the bam index is not present...\n')
+                  sys.stderr.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Skipping insert size plot for sample '+self.name+' the bam index is not present...\n')
+                  return orientations
+  
+            orientationsOnDisk = gzip.open(self.dataPath+'/orientations.pylist.gz','wb',9)
+            orientationsOnDisk.write(str(orientations))
+            orientationsOnDisk.close()
+        else:
+            self.analysispipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Loading orientations from orintations.pylist-file '+self.name+' ...\n')
+            orientations = eval(gzip.open(self.dataPath+'/orientations.pylist.gz','rb').read())
+  
+        self.analysispipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(self.analysispipe.masterPid)+'# Loaded oriantation stats for sample '+self.name+' joining to main...\n')
+        return orientations
 

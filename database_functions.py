@@ -150,6 +150,7 @@ class Database(object):
         return refSamples+samples
     
     def updateFastqReadCount(self,sample):
+        from sample import extractData as extractData
     
         self.getConnection()
     

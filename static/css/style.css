@@ -1,0 +1,25 @@
+<style>        
+    body {
+        background-color:white
+        font-family : Arial,"Myriad Web",Verdana,Helvetica,sans-serif;
+    }
+    h1   {color:black}
+    p    {color:green}
+    
+    table, th, td {
+        border: 1px solid black;
+        border-collapse: collapse;
+        
+        font-size : 12;
+    }
+    th {
+        text-align: center;
+        background-color:darkgray;
+        color:white;
+        border: 1px solid black;
+    }
+    table {border-spacing: 1px;}
+    th,td {padding: 5px;}
+    td {text-align: center;}
+
+</style>

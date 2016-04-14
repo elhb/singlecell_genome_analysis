@@ -9,7 +9,7 @@ class SampleTrimmer():
             output = '#! /bin/bash -l'+'\n'
         output += '#SBATCH -A '+self.analysispipe.settings.uppmaxProject+'\n'
         output += '#SBATCH -n 2 -p node'+'\n'
-        output += '#SBATCH -t 24:00:00'+'\n'
+        output += '#SBATCH -t 48:00:00'+'\n'
         output += '#SBATCH -J trim.'+sample.name+'.'+str('test')+'\n'
         output += '#SBATCH -e '+sample.logPath+'/stderr.trimming.'+sample.name+'.'+str(filePairId)+'.txt'+'\n'
         output += '#SBATCH -o '+sample.logPath+'/stdout.trimming.'+sample.name+'.'+str(filePairId)+'.txt'+'\n'

@@ -9,7 +9,7 @@ class SampleMapper():
             output = '#! /bin/bash -l'+'\n'
         output += '#SBATCH -A '+self.analysispipe.settings.uppmaxProject+'\n'
         output += '#SBATCH -n 16 -p node'+'\n'
-        output += '#SBATCH -t 48:00:00'+'\n'
+        output += '#SBATCH -t 240:00:00'+'\n'
         output += '#SBATCH -J map.'+sample.name+'.'+str('test')+'\n'
         output += '#SBATCH -e '+sample.logPath+'/stderr.mapping.'+sample.name+'.'+str(filePairId)+'.txt'+'\n'
         output += '#SBATCH -o '+sample.logPath+'/stdout.mapping.'+sample.name+'.'+str(filePairId)+'.txt'+'\n'

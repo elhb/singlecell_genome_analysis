@@ -197,3 +197,18 @@ def vcfParser(infilename,subsetSize=None,logfile=False):
 		    if variation.chrom != lastChomosomeRead and logfile: logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'# started loading variations from '+str(variation.chrom)+'.\n')
 		    lastChomosomeRead = variation.chrom
 	if logfile: logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'# vcf file loaded.\n')
+
+def genotypeAsBases(variant,genotype):
+    """ Use this function to translate a "0/1"-type genotype to a "A/T"-genotype """
+    
+    # get the alternative and refences bases into an array so that the bases can be accessed by integer indexes
+    theBases = [variant.refBase]+variant.altBases
+    
+    # check that the genotype is not "no data" or "unknown"
+    if genotype == 'Unknown' or genotype == './.':
+        return genotype
+    
+    # if the genotype is integers sepparated by "/" translate the integers to corresponding base
+    else:
+        baseInts = genotype.split('/')
+        return '/'.join([theBases[int(tmp_integer)] for tmp_integer in baseInts])

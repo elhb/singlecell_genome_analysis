@@ -584,7 +584,6 @@ class AnalysisPipe(object):
         
                 dependency = []
                 for filePairId,readCount,fastq1,fastq2,sampleId in sample.getFastqs():
-                #for sample in AnalysisPipe.database.getSamples():
                     if not submissionArray or submissionArray[0]:
                         fileName = sample.scriptPath+'/trimming.'+sample.name+'.'+str(filePairId)+'.sbatch.sh'
                         jobid = submitSbatch(fileName)

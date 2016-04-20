@@ -100,6 +100,7 @@ class AnalysisPipe(object):
         elif self.action == 'changeSetting':self.changeSetting()
         elif self.action == 'createScripts':self.createScripts()
         elif self.action == 'submitScripts':self.submitScripts()
+        elif self.action == 'reSubmitScripts':self.reSubmitScripts()
         else:
             msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply a Valid action on your commandline (currently: "'+' '.join(sys.argv)+'"), exiting.\n'
             msg += """Available commands: 
@@ -109,7 +110,8 @@ class AnalysisPipe(object):
                     'generatePlots'
                     'changeSetting'
                     'createScripts'
-                    'submitScripts'"""
+                    'submitScripts'
+                    'reSubmitScripts'"""
             AnalysisPipe.logfile.write(msg)
             sys.stderr.write(msg)
             sys.stderr.write('\n'+self.getReadme())
@@ -166,6 +168,178 @@ class AnalysisPipe(object):
         sampleqc_object = SampleQC(self)
         for sample in alloursamples_list:
             sampleqc_object.qcSteps(sample)
+            
+        self.createPipeWideScripts()
+    
+    def createPipeWideScripts(self,):
+        
+        import sys
+        import time
+        
+        try: project = sys.argv[3]
+        except IndexError:
+            msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# You must give a project number for the creation of sbatch scripts, exiting.\n'
+            AnalysisPipe.logfile.write(msg)
+            sys.stderr.write(msg)
+            sys.exit(1)
+    
+        # GenotypeGVCFs
+        # sbatch header
+        #
+        output = '#! /bin/bash -l'+'\n'
+        output += '#SBATCH -A '+project+'\n'
+        output += '#SBATCH -n 16 -p node'+'\n'
+        output += '#SBATCH -t 240:00:00'+'\n'
+        output += '#SBATCH -J genotype.'+self.path.split('/')[-1]+'\n'
+        output += '#SBATCH -e '+self.path+'/stderr.genotype.txt'+'\n'
+        output += '#SBATCH -o '+self.path+'/stdout.genotype.txt'+'\n'
+    
+        try:
+            output += '#SBATCH --mail-type=All'+'\n'
+            output += '#SBATCH --mail-user='+sys.argv[5]+'\n'
+        except IndexError: pass
+        output += 'echo "$(date) Running on: $(hostname)"\n'
+        output += 'echo "$(date) Running on: $(hostname)"'+'\n'
+        output += 'echo "$(date) Running on: $(hostname)" >&2'+'\n'
+        output += 'echo "HC" '+'\n'
+        output += 'java -Xmx100g -jar '+self.settings.GATKlocation+' -nt 16 '
+        output += '-T  GenotypeGVCFs '
+        output += '-R '+self.settings.bowtie2Reference+' '
+        output += '--variant '+('\\'+'\n'+' --variant ').join([sample.dataPath+'/'+sample.name+'.gvcf ' for sample in AnalysisPipe.database.getSamples()])+' '
+        #if wgsOrExome == 'exome': output += '-L '+AnalysisPipe.referencePath+'/truseq_exome_targeted_regions.hg19.bed.chr.columnReOrdered.withHeader.chrRem.bed '
+        #elif wgsOrExome == 'wgs': output += '-L '+AnalysisPipe.referencePath+'/wgs.bed '
+        output += '--dbsnp '+self.settings.GATKbundleLocation+'/dbsnp_138.b37.vcf '
+        output += '-A StrandBiasBySample -A FisherStrand -A MappingQualityZero -A MappingQualityZeroBySample -A QualByDepth '
+        output += '-o '+self.path+'/raw_variants.vcf  1>&2 2> '+self.path+'/stderr.GenotypeGVCFs_GATKrun.txt &'+'\n'
+            
+        output += 'wait'+'\n'
+        output += 'echo "Done. $(date) Running on: $(hostname)"'+'\n'
+        output += 'wait'+'\n'
+        output += 'echo "$(date) AllDone"'+'\n'
+        output += 'echo "$(date) AllDone" >&2'+'\n\n\n'
+        with open(self.path+'/GenotypeGVCFs.sh','w') as outfile: outfile.write(output)
+        
+        # vqsr_indels
+        # sbatch header
+        #
+        output = '#! /bin/bash -l'+'\n'
+        output += '#SBATCH -A '+project+'\n'
+        output += '#SBATCH -n 16 -p node'+'\n'
+        output += '#SBATCH -t 240:00:00'+'\n'
+        output += '#SBATCH -J vqsrIndel.'+self.path.split('/')[-1]+'\n'
+        output += '#SBATCH -e '+self.path+'/stderr.vqsrIndel.txt'+'\n'
+        output += '#SBATCH -o '+self.path+'/stdout.vqsrIndel.txt'+'\n'
+        try:
+            output += '#SBATCH --mail-type=All'+'\n'
+            output += '#SBATCH --mail-user='+sys.argv[5]+'\n'
+        except IndexError: pass
+        output += 'echo "$(date) Running on: $(hostname)"'+'\n'
+        output += 'echo "$(date) Running on: $(hostname)" >&2'+'\n'
+        output += 'echo "VQSR" '+'\n'
+        output += 'java -Xmx24g -jar '+self.settings.GATKbundleLocation+' \\'+'\n'
+        output += '   -T VariantRecalibrator \\'+'\n'
+        output += '   -nt 16 \\'+'\n'
+        output += '   -R '+self.settings.bowtie2Reference+' \\'+'\n'
+        output += '   -input '+self.path+'/recalibrated_snps_raw_indels.vcf \\'+'\n'
+        output += '   -recalFile '+self.path+'/indels.raw.recal \\'+'\n'
+        output += '   -tranchesFile '+self.path+'/indels.raw.tranches \\'+'\n'
+        output += '   -resource:mills,known=true,training=true,truth=true,prior=12.0 '+self.settings.GATKbundleLocation+'/Mills_and_1000G_gold_standard.indels.b37.vcf \\'+'\n'
+        output += '   -an DP -an FS -an MQRankSum -an ReadPosRankSum \\'+'\n'
+        output += '   -tranche 100.0 -tranche 99.9 -tranche 99.0 -tranche 90.0 \\'+'\n'
+        output += '   --maxGaussians 4 \\'+'\n'
+        output += '   -rscriptFile '+self.path+'/recalibrate_INDEL_plots.R \\'+'\n'
+        output += '   -mode INDEL'+'\n'
+        output += 'echo "Done. $(date) Running on: $(hostname)"'+'\n'
+        output += 'wait'+'\n'
+        output += 'echo "$(date) Running on: $(hostname)"'+'\n'
+        output += 'echo "---> apply recal <---"'+'\n'
+        output += 'java -Xmx72g -jar '+self.settings.GATKlocation+' \\'+'\n'
+        output += '   -nt 16 \\'+'\n'
+        output += '   -T ApplyRecalibration \\'+'\n'
+        output += '   -R '+self.settings.bowtie2Reference+' \\'+'\n'
+        output += '   -input '+self.path+'/recalibrated_snps_raw_indels.vcf \\'+'\n'
+        output += '   -tranchesFile '+self.path+'/indels.raw.tranches \\'+'\n'
+        output += '   -recalFile '+self.path+'/indels.raw.recal \\'+'\n'
+        output += '   -o '+self.path+'/indels.recalibrated.vcf \\'+'\n'
+        output += '   --ts_filter_level 99.0 \\'+'\n'
+        output += '   -mode INDEL'+'\n'
+        output += 'echo "Done. $(date) Running on: $(hostname)"'+'\n'
+        output += 'wait'+'\n'
+        output += 'echo $file;'+'\n'
+        output += 'echo "$(date) AllDone"'+'\n'
+        output += 'echo "$(date) AllDone" >&2'+'\n'
+        with open(self.path+'/vqsrIndel.sh','w') as outfile: outfile.write(output)
+        
+        #def makeScript_vqsr_snps(self):
+        #
+        # sbatch header
+        #
+        output = '#! /bin/bash -l'+'\n'
+        output += '#SBATCH -A '+project+'\n'
+        output += '#SBATCH -n 16 -p node'+'\n'
+        output += '#SBATCH -t 240:00:00'+'\n'
+        output += '#SBATCH -J vqsrSnps.'+self.path.split('/')[-1]+'\n'
+        output += '#SBATCH -e '+self.path+'/stderr.vqsrSnps.txt'+'\n'
+        output += '#SBATCH -o '+self.path+'/stdout.vqsrSnps.txt'+'\n'
+        try:
+            output += '#SBATCH --mail-type=All'+'\n'
+            output += '#SBATCH --mail-user='+sys.argv[5]+'\n'
+        except IndexError: pass
+        output += 'echo "$(date) Running on: $(hostname)"\n'
+        output += 'echo "$(date) Running on: $(hostname)"'+'\n'
+        output += 'echo "$(date) Running on: $(hostname)" >&2'+'\n'
+        output += 'echo "---> Variant filtration <---" '+'\n'
+        output += 'echo "---> Variant filtration <---" 1>&2'+'\n'
+        output += 'java -Xmx60g -jar '+self.settings.GATKlocation+' -T VariantFiltration '
+        output += '-R '+self.settings.bowtie2Reference+' '
+        output += '--filterExpression  "QUAL < 50.0" --filterName "LowQual" '
+        output += '--filterExpression "FS > 60" --filterName "FisherSB" '# for SNPs
+        #output += '--filterExpression "FS > 200" --filterName "FIsherSB" '# for INDELs
+        output += '--filterExpression "QD<1.0" --filterName "QualByDepth" '
+        output += '--filterExpression "(MQ0 >= 4 && ((MQ0/(1.0 * DP)) > 0.1))" --filterName "FUBAR" '
+        output += '--variant '+self.path+'/raw_variants.vcf '
+        output += '--out '+self.path+'/filtered_variants.vcf '
+        output += '\n'
+        output += 'echo "Variant filtration done. $(date) Running on: $(hostname)"'+'\n'
+        output += 'echo "---> VQSR <---" '+'\n'
+        output += 'echo "---> VQSR <---" 1>&2'+'\n'
+        output += 'java -Xmx60g -jar '+self.settings.GATKlocation+' -T VariantRecalibrator '
+        output += '-R '+self.settings.bowtie2Reference+' -input '+self.path+'/filtered_variants.vcf'
+        output += ' -resource:hapmap,known=false,training=true,truth=true,prior=15.0'+' '+self.settings.GATKbundleLocation+'/hapmap_3.3.b37.vcf'
+        output += ' -resource:omni,known=false,training=true,truth=false,prior=12.0' +' '+self.settings.GATKbundleLocation+'/1000G_omni2.5.b37.vcf'
+        output += ' -resource:dbsnp,known=true,training=false,truth=false,prior=6.0' +' '+self.settings.GATKbundleLocation+'/dbsnp_138.b37.vcf'
+        output += ' -an QD -an MQRankSum -an ReadPosRankSum -an FS -an DP -mode SNP'
+        output += ' -tranche 100.0 -tranche 99.9 -tranche 99.0 -tranche 90.0'
+        output += ' -minNumBad 1000'
+        output += ' -recalFile '+self.path+'/recalibrate_SNP.recal '
+        output += ' -tranchesFile '+self.path+'/recalibrate_SNP.tranches '
+        output += ' -rscriptFile '+self.path+'/recalibrate_SNP_plots.R '
+        output += '\n'
+        output += 'echo "Done. $(date) Running on: $(hostname)"'+'\n'
+        output += 'wait'+'\n'
+        output += 'echo "-----"'+'\n'
+        output +='\n'
+        output += 'echo "$(date) Running on: $(hostname)"'+'\n'
+        output +='\n'
+        output +='\n'
+        output += 'echo "---> apply recal <---" '+'\n'
+        output += 'echo "---> apply recal <---" 1>&2'+'\n'
+        output +='\n'
+        output += 'java -Xmx60g -jar '+self.settings.GATKlocation+' '
+        output += '-T ApplyRecalibration -R '+self.settings.bowtie2Reference+' '
+        output += ' -input '+self.path+'/filtered_variants.vcf '
+        output += ' -recalFile '+self.path+'/recalibrate_SNP.recal '
+        output += ' -tranchesFile '+self.path+'/recalibrate_SNP.tranches '
+        output += ' -o '+self.path+'/recalibrated_snps_raw_indels.vcf '
+        output += ' --ts_filter_level 99.0 -mode SNP'+'\n'
+        output +='\n'
+        output +='\n'
+        output += 'echo "Done. $(date) Running on: $(hostname)"'+'\n'
+        output += 'wait'+'\n'
+        output += 'echo "$(date) AllDone"'+'\n'
+        output += 'echo "$(date) AllDone" >&2'+'\n'
+        with open(self.path+'/vqsrSnps.sh','w') as outfile: outfile.write(output)
+        return
 
     def addFastq(self,):
         
@@ -326,7 +500,138 @@ class AnalysisPipe(object):
             
             fileName = sample.scriptPath+'/qcSteps.'+sample.name+'.sbatch.sh'
             jobid = submitSbatch(fileName,dependency=[jobid])
-            AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted qc steps for '+sample.name+' with job id '+str(jobid)+' \n')
+            AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted qc steps for '+sample.name+' with job id '+str(jobid)+' \n')      
+            
+    def reSubmitScripts(self, remove=True):
+        """ A function that resubmits selected sbatch scripts for one selected sample
+        """
+        import sys
+        import time
+        import glob
+        import os
+        import shutil
+        import re
+        
+        
+        try: sampleIdOrName = sys.argv[-1]
+        except IndexError:
+            AnalysisPipe.logfile.write('#ERROR#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Bad command no sample id or name found ... \n')
+            sys.stderr.write('#ERROR#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Bad command no sample id or name found ... \n')
+            sys.exit()
+    
+        try:
+            submissionArray = sys.argv[-2]
+            if not re.match('[01]{8}',submissionArray): submissionArray = None
+            else:
+                submissionArray=[int(i) for i in submissionArray]
+        except IndexError: pass
+    
+        try:
+            project = sys.argv[3]
+            AnalysisPipe.settings.setVariable('uppmaxProject',project)
+        except IndexError:
+            msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# You must give a project number for the creation of sbatch scripts, exiting.\n'
+            AnalysisPipe.logfile.write(msg)
+            sys.stderr.write(msg)
+            sys.exit(1)
+       
+
+        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Creating sbatch scripts:\n')
+
+
+
+        sampleFound = False
+        for sample in AnalysisPipe.database.getSamples():
+            
+            if sampleIdOrName == sample.name or (sampleIdOrName.isdigit() and int(sampleIdOrName) == sample.id):
+    
+                sampleFound = True
+                if submissionArray and remove:
+                    if submissionArray[0]: pass
+                    if submissionArray[1]: pass
+                    if submissionArray[2]: pass
+                    if submissionArray[3]: pass
+                    if submissionArray[4]: pass
+                    if submissionArray[5]: pass
+                    if submissionArray[6]: pass
+                    if submissionArray[7]: pass
+                elif remove:
+                    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Removing old data and logs ... \n')
+                    #files = list(glob.iglob( sample.scriptPath+'/*' ))
+                    files = list(glob.iglob( sample.dataPath  +'/*' ))
+                    files+= list(glob.iglob( sample.logPath   +'/*' ))
+                    files+= list(glob.iglob( sample.fastqcPath+'/*' ))
+                    for filename in files:
+                        if os.path.isdir(filename): shutil.rmtree(filename);
+                        else: os.remove(filename)
+                        sys.stderr.write('removing '+filename+'\n')
+    
+                AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# sample: '+sample.name+' ... \n')
+                try: sample.getFastqs().next()
+                except StopIteration:
+                    AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# No fastq files found for sample: '+sample.name+' continuing with next sample.\n')
+                    continue
+                
+                allSampleDependency = []
+
+                AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitting sbatches for sample: '+sample.name+' ... \n')
+                try: sample.getFastqs().next()
+                except StopIteration:
+                    AnalysisPipe.logfile.write('#WARNING#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# No fastq files found for sample: '+sample.name+' continuing with next sample.\n')
+                    continue
+        
+                jobid = None
+        
+                dependency = []
+                for filePairId,readCount,fastq1,fastq2,sampleId in sample.getFastqs():
+                #for sample in AnalysisPipe.database.getSamples():
+                    if not submissionArray or submissionArray[0]:
+                        fileName = sample.scriptPath+'/trimming.'+sample.name+'.'+str(filePairId)+'.sbatch.sh'
+                        jobid = submitSbatch(fileName)
+                        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted trimming of fastq '+str(filePairId)+' for '+sample.name+' with job id '+str(jobid)+' \n')
+        
+                    if not submissionArray or submissionArray[1]:
+                        fileName = sample.scriptPath+'/mapping.'+sample.name+'.'+str(filePairId)+'.sbatch.sh'
+                        jobid = submitSbatch(fileName,dependency=[jobid])
+                        dependency.append(jobid)
+                        AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted mapping of fastq '+str(filePairId)+' for '+sample.name+' with job id '+str(jobid)+' \n')
+                
+                if not submissionArray or submissionArray[2]:
+                    fileName = sample.scriptPath+'/merge.'+sample.name+'.sbatch.sh'
+                    jobid = submitSbatch(fileName,dependency=dependency)
+                    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted mering of mapped data for '+sample.name+' with job id '+str(jobid)+' \n')
+        
+                if not submissionArray or submissionArray[3]:
+                    fileName = sample.scriptPath+'/fnf.'+sample.name+'.sbatch.sh'
+                    jobid = submitSbatch(fileName,dependency=[jobid])
+                    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted fixing the of merged data for '+sample.name+' with job id '+str(jobid)+' \n')
+        
+                if not submissionArray or submissionArray[4]:
+                    fileName = sample.scriptPath+'/realTC.'+sample.name+'.sbatch.sh'
+                    jobid = submitSbatch(fileName,dependency=[jobid])
+                    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted realignerTargetCreator of data for '+sample.name+' with job id '+str(jobid)+' \n')
+        
+                if not submissionArray or submissionArray[5]:
+                    fileName = sample.scriptPath+'/reAlign.'+sample.name+'.sbatch.sh'
+                    jobid = submitSbatch(fileName,dependency=[jobid])
+                    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted reAlignAndReCalibrate of data for '+sample.name+' with job id '+str(jobid)+' \n')
+        
+                if not submissionArray or submissionArray[6]:
+                    fileName = sample.scriptPath+'/haplotypeCalling.'+sample.name+'.sbatch.sh'
+                    hapJobid = submitSbatch(fileName,dependency=[jobid])
+                    allSampleDependency.append(hapJobid)
+                    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted haplotypecalling for '+sample.name+' with job id '+str(jobid)+' \n')
+        
+                if not submissionArray or submissionArray[7]:
+                    fileName = sample.scriptPath+'/qcSteps.'+sample.name+'.sbatch.sh'
+                    jobid = submitSbatch(fileName,dependency=[jobid])
+                    AnalysisPipe.logfile.write('#LOGMSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Submitted qc steps for '+sample.name+' with job id '+str(jobid)+' \n')
+                        
+            
+            if not sampleFound:
+                AnalysisPipe.logfile.write('#ERROR#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Sample '+str(sampleIdOrName)+' not found in database ... \n')
+                sys.stderr.write(          '#ERROR#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Sample '+str(sampleIdOrName)+' not found in database ... \n')
+                sys.exit()
             
     def reportServer(self, ):
         

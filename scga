@@ -236,7 +236,7 @@ class AnalysisPipe(object):
         output += 'echo "$(date) Running on: $(hostname)"'+'\n'
         output += 'echo "$(date) Running on: $(hostname)" >&2'+'\n'
         output += 'echo "VQSR" '+'\n'
-        output += 'java -Xmx24g -jar '+self.settings.GATKbundleLocation+' \\'+'\n'
+        output += 'java -Xmx24g -jar '+self.settings.GATKlocation+' \\'+'\n'
         output += '   -T VariantRecalibrator \\'+'\n'
         output += '   -nt 16 \\'+'\n'
         output += '   -R '+self.settings.GATK_reference+' \\'+'\n'

@@ -361,9 +361,9 @@ def generate_oldStyle_index(analysispipe):
           outputStr += '<br><br>Coverage over chromosome '+chrom+':<br>'
           for sample in refSamplesFirst:
               if os.path.exists(sample.plotsPath+'/readDepth.'+sample.name+'.'+chrom+'.png'):
-                outputStr += '<a href="'+'static/runData'+'/per_sample_info/'+samplesbyId[int(sampleId)].name+'/plots'+'/readDepth.'+sample.name+'.'+chrom+'.pdf'+'">'
+                outputStr += '<a href="'+'static/runData'+'/per_sample_info/'+sample.name+'/plots'+'/readDepth.'+sample.name+'.'+chrom+'.pdf'+'">'
                 #os.path.relpath(sample.plotsPath+'/readDepth.'+sample.name+'.'+chrom+'.pdf','/'.join(reportFile.name.split('/')[:-1]))+'">'
-                outputStr += '<img src="'+'static/runData'+'/per_sample_info/'+samplesbyId[int(sampleId)].name+'/plots'+'/readDepth.'+sample.name+'.'+chrom+'.png'+'">'
+                outputStr += '<img src="'+'static/runData'+'/per_sample_info/'+sample.name+'/plots'+'/readDepth.'+sample.name+'.'+chrom+'.png'+'">'
                 outputStr += '</a><br>'
 
     #for imgFileName in glob.iglob(analysispipe.path+'/graphics/readDepth.*.png'):

@@ -101,6 +101,7 @@ class AnalysisPipe(object):
         elif self.action == 'createScripts':self.createScripts()
         elif self.action == 'submitScripts':self.submitScripts()
         elif self.action == 'reSubmitScripts':self.reSubmitScripts()
+        elif self.action == 'adoCheck':self.adoCheck()
         else:
             msg = '#ERROR_MSG#'+time.strftime("%Y-%m-%d:%H:%M:%S",time.localtime())+'#'+str(AnalysisPipe.masterPid)+'# Please supply a Valid action on your commandline (currently: "'+' '.join(sys.argv)+'"), exiting.\n'
             msg += """Available commands: 
@@ -119,6 +120,14 @@ class AnalysisPipe(object):
             
         AnalysisPipe.settings.saveToDb()
     
+    def adoCheck(self,):
+        
+        import vcf
+        
+        print 'hej'
+        vcf.readVcfToMem(self)
+        vcf.parseVcfForADOrate(self)
+
     def createScripts(self, ):
     
         from mapping_functions import SampleMapper
@@ -1219,7 +1228,7 @@ def parallelMakeRDOverChromPlots(sample): #this function need to call some other
     import os
     import multiprocessing
     import glob
-    from misc import thousandString, percentage
+    from misc import thousandString, percentage,sorted_nicely
     
     #
     # set colors for plots
@@ -1295,12 +1304,22 @@ def parallelMakeRDOverChromPlots(sample): #this function need to call some other
         ado = {chrom:[] for chrom in lengthOfChromByName}
         if len(potentialInFiles) == 1: infile = potentialInFiles[0]
         if len(potentialInFiles) > 1:
-            data = open(sample.dataPath+'/sampleClassification.txt').read().split('\n')
-            refsample = data[1]
-            infile = sample.dataPath+'/adoVariantsList.ref='+refsample+'.tsv'
-            if data[0] == 'mix' or data[0] =='Unknown':  infile = potentialInFiles[0]; eraseAdo = True
+            try:
+                data = open(sample.dataPath+'/sampleClassification.txt').read().split('\n')
+                refsample = data[1]
+                infile = sample.dataPath+'/adoVariantsList.ref='+refsample+'.tsv'
+                if data[0] == 'mix' or data[0] =='Unknown':  infile = potentialInFiles[0]; eraseAdo = True
+            except IOError:
+                if AnalysisPipe.settings.adoRefSample:
+                    refsample = AnalysisPipe.settings.adoRefSample
+                else:
+                    refsample = raw_input('cannot find any sample to use as reference in ADO rate estimation etc\nfollowing samples are around:\n'+'\n'.join(sorted_nicely([sample.name for sample in AnalysisPipe.database.getSamples()]))+'\nplease give a Sample name to use as reference: ')
+                    AnalysisPipe.settings.setVariable('adoRefSample',refsample)
+                    AnalysisPipe.settings.saveToDb()
+                infile = sample.dataPath+'/adoVariantsList.ref='+refsample+'.tsv'
         with open(infile) as infile:
             for line in infile:
+
                 chrom,pos,rsid,classification,gt,gq,dp,ad = line.rstrip().split('\t')
                 if classification == 'NoData': continue
                 try: ado[chrom].append([int(pos),classification])

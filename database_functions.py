@@ -307,7 +307,8 @@ class Settings(object,):
             'GATKbundleLocation':'/sw/data/uppnex/GATK/2.8/b37',
             'targets':'pathway/wgstargets',
             'program_path':'~/single_cell_genome_analysis/from_git/singlecell_genome_analysis',
-            'GATK_reference': '/sw/data/uppnex/reference/Homo_sapiens/GRCh37/program_files/GATK/concat.fasta'
+            'GATK_reference': '/sw/data/uppnex/reference/Homo_sapiens/GRCh37/program_files/GATK/concat.fasta',
+            'adoRefSample':None
         
         }
         self.explenations = {
@@ -332,7 +333,8 @@ class Settings(object,):
             'GATKbundleLocation':'pathway to GATK bundle',
             'targets':'pathway to wgs targets',
             'program_path':'pathway to scga on uppmax',
-            'GATK_reference': 'pathway to GATK reference'
+            'GATK_reference': 'pathway to GATK reference',
+            'adoRefSample':'sample name to use as reference for the ado check'
             
     
             }
@@ -362,6 +364,7 @@ class Settings(object,):
         self.targets = None
         self.program_path = None
         self.GATK_reference = None
+        self.adoRefSample = None
         self.setDefaults()
     
     def setDefaults(self,):

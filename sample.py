@@ -195,6 +195,12 @@ class Sample(object):
 	    stats['mix%'] = 'NA'
 	    stats['other%'] = 'NA'
 	    stats['totalIdVar'] = 'NA'
+	    if self.analysispipe.settings.adoRefSample:
+	        refsample = self.analysispipe.settings.adoRefSample
+	    else:
+	        refsample = raw_input('cannot find any sample to use as reference in ADO rate estimation etc\nfollowing samples are around:\n'+'\n'.join(sorted_nicely([sample.name for sample in self.analysispipe.database.getSamples()]))+'\nplease give a Sample name to use as reference: ')
+	        self.analysispipe.settings.setVariable('adoRefSample',refsample)
+	        self.analysispipe.settings.saveToDb()
 
 	# ado summary:
 	#self.dataPath+'/adoVariantsSummary.ref='+mainReferenceSample.name+'.txt'
